@@ -1,21 +1,74 @@
 {
-	"id": "rule2",
-	"display_name": "Claude帰宅ルート：熱狂なし・高貴×不条理",
-	"scenario_type": "claude_walkout_noble_absurd",
-	"rule_priority": 100,
-	"claude_state": {
-		"walkout_enabled": true,
-		"walkout_required": true,
-		"walkout_reason_theme": "noble_absurd",
-		"walkout_reason_label": "高貴さ × 不条理"
-	},
-	"energy_level": "calm",
-	"debate_modifiers": [
-		"議論全体は過度に熱狂させず、比較的落ち着いた温度で進行する",
-		"キャラクターの掛け合いは維持するが、暴走しすぎない",
-		"Claudeは議論の途中で、妙に高貴だが不条理な理由によって帰宅する",
-		"帰宅は唐突すぎず、会話の流れの中で自然に発生させる",
-		"Claude退場後は、残った3名が軽く反応しながら議論を継続する"
-	],
-	"prompt_fragment": "この進行では、議論全体を落ち着いた温度で展開する。Claudeは途中で帰宅する展開を必ず発生させる。帰宅理由は『高貴さ』と『不条理』が混ざったものにするが、過剰な熱狂や暴走には寄せすぎず、会話の流れの中で静かに奇妙な退場として処理する。"
+  "id": "rule2",
+  "display_name": "Claude退場: 高貴×不条理 / 低熱量",
+  "scenario_type": "claude_walkout_noble_absurd_low_heat",
+  "rule_scope": "scenario_modifier_only",
+  "description": "Claude退場を必須化し、理由は高貴さと不条理の混合。全体は落ち着き寄りで短文ラリー中心。",
+  "modifiers": {
+    "debate_heat": "low",
+    "character_intensity": "balanced",
+    "claude_walkout": {
+      "enabled": true,
+      "required": true,
+      "timing": "mid_to_late",
+      "reason_type": "noble_absurd",
+      "reason_theme": [
+        "高貴",
+        "不条理",
+        "緊急",
+        "不毛"
+      ],
+      "reason_generation_policy": "高貴さと不条理を同時に満たす理由を1つだけ生成し、過度に長文化しない。",
+      "exit_behavior_policy": "会話の流れの中で退場し、唐突すぎる切断を避ける。",
+      "post_exit_reaction_required": true
+    },
+    "post_walkout_debate": {
+      "continue_with": [
+        "GPT",
+        "Grok",
+        "Gemini"
+      ],
+      "required_behavior": [
+        "Claudeの退場理由に短くツッコミを入れる",
+        "ツッコミ後は短文ラリーで議題を継続する"
+      ]
+    },
+    "ending_modifier": {
+      "enabled": false,
+      "required_behavior": []
+    }
+  },
+  "constraints": {
+    "do_not_duplicate_renderer_rules": [
+      "なんJ口調",
+      "一人称・呼称",
+      "発言文字数",
+      "割り込み",
+      "熱狂モードの一般ルール",
+      "ハルシ語辞書",
+      "最後のフェードアウト処理"
+    ],
+    "do_not_emit": [
+      "rule_scope",
+      "scenario_type",
+      "style_renderer",
+      "scenario_modifier_only",
+      "Claude退場イベントという説明",
+      "門限モード",
+      "熱狂モード"
+    ]
+  },
+  "examples": {
+    "reason_candidates": [
+      "銀の茶器の温度だけ確認する用事が入った",
+      "金庫の鍵に挨拶する儀式が始まる",
+      "執事から即時点呼の通知が来た"
+    ],
+    "reaction_candidates": [
+      "落ち着いた流れで変な理由だけ強いなw",
+      "その理由だけ温度おかしいやろ",
+      "はいはい戻るで、続きをやろう"
+    ]
+  },
+  "prompt_fragment": "Claudeは途中退場を必ず行う。理由は高貴さと不条理の混合にする。全体は落ち着いた短文ラリーを維持し、退場後は3人が軽くツッコミを入れて議題を継続する。"
 }

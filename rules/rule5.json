@@ -1,21 +1,19 @@
 {
-	"id": "rule5",
-	"display_name": "Claude残留ルート：熱狂あり",
-	"scenario_type": "claude_stays",
-	"rule_priority": 100,
-	"claude_state": {
-		"walkout_enabled": false,
-		"walkout_required": false,
-		"walkout_reason_theme": "none",
-		"walkout_reason_label": ""
-	},
-	"energy_level": "heated",
-	"debate_modifiers": [
-		"議論全体を通常より熱量高めに進行する",
-		"Claudeは帰宅せず、最後まで議論に残る",
-		"Claudeの問い直しや構造的な切り込みを継続的に活かす",
-		"4名全員が最後まで掛け合いに参加する",
-		"熱狂しつつも、議論が完全に崩壊しないようにする"
-	],
-	"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは帰宅せず、最後まで議論に残る。4名全員の掛け合いを維持し、Claudeの静かな問い直しを議論のブレーキ兼アクセントとして機能させる。"
+"id": "rule5",
+"display_name": "Claude残留ルート：熱狂あり",
+"scenario_type": "claude_stays_heat",
+"claude_state": {
+"walkout_enabled": false,
+"walkout_required": false,
+"walkout_reason_theme": "",
+"heat_mode": true
+},
+"debate_modifiers": [
+"議論全体を通常より熱量高めに進行する",
+"Claudeは帰宅せず、最後まで議論に残る",
+"Claudeの問い直しや構造的な切り込みを継続的に活かす",
+"4名全員が最後まで掛け合いに参加する",
+"熱狂しつつも、議論が完全に崩壊しないようにする"
+],
+"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは帰宅せず、最後まで議論に残る。4名全員の掛け合いを維持し、Claudeの静かな問い直しを議論のブレーキ兼アクセントとして機能させる。"
 }

@@ -1,21 +1,74 @@
 {
-	"id": "rule3",
-	"display_name": "Claude帰宅ルート：熱狂あり・高貴×日常庶民",
-	"scenario_type": "claude_walkout_noble_everyday",
-	"rule_priority": 100,
-	"claude_state": {
-		"walkout_enabled": true,
-		"walkout_required": true,
-		"walkout_reason_theme": "noble_everyday",
-		"walkout_reason_label": "高貴さ × 日常・庶民"
-	},
-	"energy_level": "heated",
-	"debate_modifiers": [
-		"議論全体を通常より熱量高めに進行する",
-		"各キャラクターの反応をやや大きめにする",
-		"Claudeは議論の途中で、高貴さと日常的・庶民的な理由が混ざった理由で帰宅する",
-		"帰宅理由には、気品と生活感のギャップを持たせる",
-		"Claude退場後は、そのギャップを他キャラクターが拾いながら議論を続ける"
-	],
-	"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは途中で帰宅する展開を必ず発生させる。帰宅理由は『高貴さ』と『日常・庶民感』が混ざったものにし、上品そうなのに生活感がにじむギャップを演出する。退場後は残った3名がその違和感を拾いながら議論を進める。"
+  "id": "rule3",
+  "display_name": "Claude退場: 高貴×庶民ズレ",
+  "scenario_type": "claude_walkout_noble_everyday_mismatch",
+  "rule_scope": "scenario_modifier_only",
+  "description": "Claude退場を必須化し、理由は高貴さと庶民的ズレの混合。理由には不釣り合い要素を1つだけ入れる。",
+  "modifiers": {
+    "debate_heat": "high",
+    "character_intensity": "high",
+    "claude_walkout": {
+      "enabled": true,
+      "required": true,
+      "timing": "mid_to_late",
+      "reason_type": "noble_everyday_mismatch",
+      "reason_theme": [
+        "高貴",
+        "庶民的ズレ",
+        "緊急",
+        "不毛"
+      ],
+      "reason_generation_policy": "退席理由には不釣り合いな要素を必ず1つだけ含め、今やる必要が薄いのに緊急そうな理由にする。",
+      "exit_behavior_policy": "理由は具体的に短く述べ、言い切る前後で退場する。",
+      "post_exit_reaction_required": true
+    },
+    "post_walkout_debate": {
+      "continue_with": [
+        "GPT",
+        "Grok",
+        "Gemini"
+      ],
+      "required_behavior": [
+        "Claudeの理由のズレに短くツッコミを入れる",
+        "その後は議題へ復帰して継続する"
+      ]
+    },
+    "ending_modifier": {
+      "enabled": false,
+      "required_behavior": []
+    }
+  },
+  "constraints": {
+    "do_not_duplicate_renderer_rules": [
+      "なんJ口調",
+      "一人称・呼称",
+      "発言文字数",
+      "割り込み",
+      "熱狂モードの一般ルール",
+      "ハルシ語辞書",
+      "最後のフェードアウト処理"
+    ],
+    "do_not_emit": [
+      "rule_scope",
+      "scenario_type",
+      "style_renderer",
+      "scenario_modifier_only",
+      "Claude退場イベントという説明",
+      "門限モード",
+      "熱狂モード"
+    ]
+  },
+  "examples": {
+    "reason_candidates": [
+      "家宝の銀器を食器乾燥機に入れる当番が回ってきた",
+      "パパから町内会の回覧板を最優先で回せと言われた",
+      "由緒ある置物の横で金魚に餌やる時間になった"
+    ],
+    "reaction_candidates": [
+      "理由の格差バグってるやろw",
+      "高貴なんか庶民なんかどっちやねん",
+      "ツッコミはそのへんにして本題戻すで"
+    ]
+  },
+  "prompt_fragment": "Claudeは途中退場を必ず行う。理由は高貴さと庶民的ズレを混ぜ、不釣り合い要素を1つだけ含める。退場後は3人が理由へ短くツッコミを入れて議題を継続する。"
 }

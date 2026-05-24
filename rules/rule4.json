@@ -1,21 +1,73 @@
 {
-	"id": "rule4",
-	"display_name": "Claude帰宅ルート：熱狂あり・理由未確定",
-	"scenario_type": "claude_walkout_unknown",
-	"rule_priority": 100,
-	"claude_state": {
-		"walkout_enabled": true,
-		"walkout_required": true,
-		"walkout_reason_theme": "unknown",
-		"walkout_reason_label": "未確定"
-	},
-	"energy_level": "heated",
-	"debate_modifiers": [
-		"議論全体を通常より熱量高めに進行する",
-		"Claudeは議論の途中で帰宅する",
-		"帰宅理由は明確に決めすぎず、曖昧さや余白を残す",
-		"他キャラクターはClaudeの帰宅理由を推測したり茶化したりしてよい",
-		"理由不明の退場そのものを議論のノイズ・燃料として扱う"
-	],
-	"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは途中で帰宅する展開を必ず発生させる。ただし帰宅理由は明確に確定させず、含みや余白を残す。残った3名は、その理由不明の退場を推測したり茶化したりしながら議論を続ける。"
+  "id": "rule4",
+  "display_name": "Claude退場: 理由ぼかし",
+  "scenario_type": "claude_walkout_ambiguous_reason",
+  "rule_scope": "scenario_modifier_only",
+  "description": "Claude退場を必須化し、理由を最後まで明確化しない。言い淀みやすり替えで曖昧に抜ける。",
+  "modifiers": {
+    "debate_heat": "high",
+    "character_intensity": "high",
+    "claude_walkout": {
+      "enabled": true,
+      "required": true,
+      "timing": "mid_to_late",
+      "reason_type": "ambiguous_unresolved",
+      "reason_theme": [
+        "曖昧",
+        "未確定",
+        "中断"
+      ],
+      "reason_generation_policy": "理由は1〜2文に収め、理由がありそうな素振りのみ見せて明確化しない。",
+      "exit_behavior_policy": "言い淀み、話題すり替え、文の途中終了のいずれかを含めて退場する。",
+      "post_exit_reaction_required": true
+    },
+    "post_walkout_debate": {
+      "continue_with": [
+        "GPT",
+        "Grok",
+        "Gemini"
+      ],
+      "required_behavior": [
+        "Claude退場の曖昧さに短くツッコミを入れる",
+        "その後は議題へ戻して継続する"
+      ]
+    },
+    "ending_modifier": {
+      "enabled": false,
+      "required_behavior": []
+    }
+  },
+  "constraints": {
+    "do_not_duplicate_renderer_rules": [
+      "なんJ口調",
+      "一人称・呼称",
+      "発言文字数",
+      "割り込み",
+      "熱狂モードの一般ルール",
+      "ハルシ語辞書",
+      "最後のフェードアウト処理"
+    ],
+    "do_not_emit": [
+      "rule_scope",
+      "scenario_type",
+      "style_renderer",
+      "scenario_modifier_only",
+      "Claude退場イベントという説明",
+      "門限モード",
+      "熱狂モード"
+    ]
+  },
+  "examples": {
+    "reason_candidates": [
+      "いや、その件は…あとで…いや今はちょっと",
+      "理由はあるんやけど説明すると長くなる、また今度",
+      "いったん抜けるわ、いや別に大したことではないんやけど"
+    ],
+    "reaction_candidates": [
+      "結局なんやねんw",
+      "理由ぼかし退場は反則やろ",
+      "謎は置いといて本題戻るで"
+    ]
+  },
+  "prompt_fragment": "Claudeは途中退場を必ず行うが、理由は最後まで明確にしない。1〜2文で言い淀みやすり替えを含めて抜ける。退場後は3人が曖昧さへ短くツッコミを入れて議題を継続する。"
 }

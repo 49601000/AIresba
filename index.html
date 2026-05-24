@@ -15,6 +15,11 @@
       <textarea id="topicInput" rows="3" placeholder="例: 回転寿司でまず何を食べるべきか"></textarea>
     </section>
 
+    <section class="panel">
+      <label for="styleSelect" class="label">Style</label>
+      <select id="styleSelect"></select>
+    </section>
+
     <section class="panel controls">
       <button id="rollBtn" type="button">Roll (1d20)</button>
       <button id="generateBtn" type="button">Generate Prompt</button>
@@ -24,6 +29,7 @@
     <section class="panel status">
       <p>ダイスロール結果: <strong id="diceResult">未ロール</strong></p>
       <p>適用ルール: <strong id="selectedRule">未選択</strong></p>
+      <p>Style: <strong id="selectedStyle">nanj</strong></p>
     </section>
 
     <section class="panel">
