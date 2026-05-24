@@ -22,5 +22,11 @@
     "label": "回転寿司コールバック",
     "type": "context_memory",
     "file": "kaitenzushi_callback.json"
+  },
+  {
+    "id": "test_guest",
+    "label": "コパイくん (Test Guest)",
+    "type": "guest_character",
+    "file": "test_guest.json"
   }
 ]
