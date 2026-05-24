@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>「ジェミの頭の中がうるさすぎる」専用｜プロンプト生成コンソール</title>
+  <link rel="apple-touch-icon" href="apple-touch-icon-jeminoisy.png" />
+  <style>
+    /* ===== CSS STYLE LAYER ===== */
+    /* Base */
+    :root{
+      --bg:#0f172a; --panel:#0f172a; --panel2:#0b1220; --line:rgba(139,92,246,.18);
+      --txt:#e8ecf8; --muted:#94a3b8; --accent:#8b5cf6; --accent2:#a855f7;
+      --warn:#ffb15a; --good:#67e3ad; --bad:#ff7aa8;
+      --shadow: 0 20px 50px rgba(0,0,0,.25);
+      --radius:18px;
+      --tap:44px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    }
+    *{box-sizing:border-box}
+    html, body{touch-action:manipulation;}
+    body{margin:0; background:
+      radial-gradient(100% 120% at 0% 0%, rgba(124,58,237,.26) 0%, rgba(124,58,237,0) 46%),
+      radial-gradient(120% 130% at 100% 0%, rgba(14,165,233,.08) 0%, rgba(14,165,233,0) 52%),
+      linear-gradient(135deg, #1a103d 0%, #0f172a 45%, #031a2e 100%);
+      color:var(--txt); padding-bottom: env(safe-area-inset-bottom);}
+    header{
+      position:sticky;
+      top:0;
+      z-index:40;
+      border-bottom:1px solid rgba(139,92,246,.22);
+      background:linear-gradient(90deg, #5B21B6 0%, #4C1D95 35%, #1E1B4B 70%, #0F172A 100%);
+      box-shadow:0 12px 32px rgba(0,0,0,.28);
+      backdrop-filter:blur(8px);
+    }
+    .topbar{
+      min-height:66px;
+      padding:8px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+    }
+    .topbarLeft{
+      display:flex;
+      align-items:center;
+      min-width:0;
+      gap:14px;
+    }
+    .brandMark{
+      width:40px;
+      height:40px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(160deg, #552fb0, #3b277f);
+      border:1px solid rgba(173,148,255,.35);
+      box-shadow:0 8px 20px rgba(20,14,50,.45);
+      color:#f3edff;
+      font-size:17px;
+      line-height:1;
+    }
+    .brandText{
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:.01em;
+      color:#f8fafc;
+      white-space:nowrap;
+    }
+    .topbarDivider{
+      width:1px;
+      height:28px;
+      background:rgba(154,164,202,.4);
+      flex:none;
+    }
+    .topbarTitle{
+      font-size:17px;
+      font-weight:800;
+      color:#f8fafc;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .topbarVersion{
+      font-size:12px;
+      font-weight:800;
+      color:#c4b5fd;
+      letter-spacing:.04em;
+      opacity:.9;
+      white-space:nowrap;
+    }
+    main{max-width:1280px; margin:0 auto; padding:18px 22px 34px; display:grid; grid-template-columns: 430px 1fr; gap:18px;}
+    @media(max-width:980px){main{grid-template-columns:1fr}.sticky{position:static!important}}
+    .card{background:rgba(15,23,42,.82); border:1px solid rgba(139,92,246,.18); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;}
+    .card h2{font-size:16px; margin:0; padding:16px 18px; border-bottom:1px solid rgba(139,92,246,.16); background:rgba(255,255,255,.02);}
+    .body{padding:16px 18px;}
+    label{display:block; font-size:13px; color:#cbd5e1; margin:14px 0 7px; font-weight:700;}
+    input[type="text"], textarea, select{width:100%; border:1px solid rgba(148,163,184,.18); border-radius:12px; background:#0b1220; color:var(--txt); padding:11px 12px; outline:none; font-size:15px;}
+    input[type="text"]:focus, textarea:focus, select:focus{
+      border-color:#8b5cf6;
+      box-shadow:0 0 0 3px rgba(139,92,246,.18);
+    }
+    input[type="text"]::placeholder, textarea::placeholder{color:rgba(148,163,184,.65);}
+    textarea{min-height:170px; resize:vertical; line-height:1.55; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
+    .sourceText{min-height:260px;}
+    .outText{min-height:560px;}
+    input[type="range"]{
+      width:100%;
+      -webkit-appearance:none;
+      appearance:none;
+      height:6px;
+      border-radius:999px;
+      background:rgba(255,255,255,.18);
+      accent-color:var(--accent);
+    }
+    input[type="range"]::-webkit-slider-runnable-track{
+      height:6px;
+      border-radius:999px;
+      background:rgba(255,255,255,.18);
+    }
+    input[type="range"]::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      width:18px;
+      height:18px;
+      margin-top:-6px;
+      border-radius:50%;
+      border:1px solid rgba(139,92,246,.6);
+      background:#8b5cf6;
+      box-shadow:0 0 0 4px rgba(139,92,246,.18);
+    }
+    input[type="range"]::-moz-range-track{
+      height:6px;
+      border-radius:999px;
+      background:rgba(255,255,255,.18);
+    }
+    input[type="range"]::-moz-range-thumb{
+      width:18px;
+      height:18px;
+      border-radius:50%;
+      border:1px solid rgba(139,92,246,.6);
+      background:#8b5cf6;
+      box-shadow:0 0 0 4px rgba(139,92,246,.18);
+    }
+    .row{display:grid; grid-template-columns:1fr 74px; gap:12px; align-items:center;}
+    .val{font-variant-numeric:tabular-nums; text-align:center; border:1px solid rgba(139,92,246,.28); border-radius:10px; padding:7px 8px; color:#ddd6fe; background:rgba(139,92,246,.12);}
+    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+    .checks{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
+    .check{display:flex; align-items:center; gap:8px; border:1px solid rgba(148,163,184,.18); border-radius:12px; padding:9px 10px; background:#0f172a; color:#cbd5e1; font-size:13px;}
+    /* ── PERSONA BUTTONS ── */
+    .persona-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top:14px;
+    }
+
+    .persona-btn {
+      border: 1.5px solid rgba(148,163,184,.2);
+      border-radius: 8px;
+      background: rgba(15,23,42,.7);
+      color: #cbd5e1;
+      padding: 10px 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      text-align: center;
+      transition: all .15s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .persona-btn:hover {
+      border-color: #8b5cf6;
+      color: #e9ddff;
+      background: rgba(139,92,246,.16);
+    }
+    .persona-btn.is-active {
+      border-color: #8b5cf6;
+      background: linear-gradient(135deg, rgba(124,58,237,.36), rgba(139,92,246,.3));
+      color: #f5f3ff;
+      box-shadow: 0 0 0 3px rgba(139,92,246,.18);
+    }
+    .persona-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--line);
+      transition: background .15s;
+    }
+    .persona-btn.is-active .persona-dot { background: var(--accent); }
+    .btns{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px;}
+    button{border:none; border-radius:12px; padding:10px 13px; color:#f8fafc; background:linear-gradient(135deg,#7c3aed,#8b5cf6); cursor:pointer; font-weight:800; letter-spacing:.02em; min-height:var(--tap); min-width:112px; transition: transform .15s ease, filter .15s ease, box-shadow .15s ease, opacity .15s ease;}
+    button:hover{filter:brightness(1.08);}
+    button.clicked { transform: translateY(1px) scale(0.98); opacity: .9; filter: brightness(0.88); }
+    button.clicked, button.good.clicked, button.secondary.clicked, button.warn.clicked { box-shadow: inset 0 0 0 2px rgba(255,255,255,.22); }
+    button.clicked { box-shadow: inset 0 0 0 2px rgba(255,255,255,.22), 0 0 0 6px rgba(139,92,246,.22); }
+    button.good.clicked { box-shadow: inset 0 0 0 2px rgba(255,255,255,.22), 0 0 0 6px rgba(47,191,145,.24); }
+    button.secondary.clicked { box-shadow: inset 0 0 0 2px rgba(255,255,255,.22), 0 0 0 6px rgba(143,160,208,.24); }
+    button.warn.clicked { box-shadow: inset 0 0 0 2px rgba(255,255,255,.22), 0 0 0 6px rgba(204,61,120,.24); }
+    button.secondary{background:rgba(15,23,42,.75); border:1px solid rgba(148,163,184,.2); color:#e2e8f0;}
+    button.good{background:linear-gradient(135deg,#7c3aed,#8b5cf6)}
+    button.warn{background:linear-gradient(135deg,#7c3aed,#8b5cf6)}
+    button:disabled{
+      opacity:.46;
+      cursor:not-allowed;
+      pointer-events:none;
+      filter:saturate(.65);
+      box-shadow:none;
+    }
+    .mini{font-size:12px; color:#94a3b8; line-height:1.55; margin-top:8px;}
+    details{border-top:1px solid var(--line);}
+    summary{cursor:pointer; padding:14px 18px; color:#ded3ff; font-weight:800; user-select:none;}
+    details .body{padding-top:0}
+    .paramDetails{margin-top:12px; border:1px solid rgba(139,92,246,.2); border-radius:12px; background:rgba(11,18,32,.45);}
+    .paramDetails summary{padding:12px 14px;}
+    .paramDetails .body{padding:0 14px 14px;}
+    .paramDetails .body label:first-child{margin-top:8px;}
+    .sticky{position:sticky; top:14px; align-self:start;}
+    .preview{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px;}
+    @media(max-width:700px){.preview{grid-template-columns:1fr 1fr}}
+    .pill{border:1px solid rgba(148,163,184,.18); background:#0f172a; border-radius:14px; padding:10px;}
+    .pill b{display:block; font-size:11px; color:#94a3b8; margin-bottom:4px;}
+    .pill span{font-size:16px; color:#f1f5f9;}
+    .danger{color:var(--bad)} .ok{color:var(--good)} .warnTxt{color:var(--warn)}
+    .toast{position:fixed; right:18px; bottom:18px; background:#063327; border:1px solid rgba(103,227,173,.55); color:#cffde6; padding:12px 14px; border-radius:12px; display:none; box-shadow:var(--shadow);}
+    .templateBox{font-size:12px; color:#cbd5e1; white-space:pre-wrap; max-height:220px; overflow:auto; background:#0b1220; border:1px solid rgba(148,163,184,.18); border-radius:12px; padding:12px;}
+    button, .check, summary, label{touch-action:manipulation;}
+    .outputHeader{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px;}
+    .outputHeader label{margin:0; flex:1;}
+    .miniBtn{min-height:38px; padding:8px 10px; font-size:12px; border-radius:10px; letter-spacing:0;}
+    .mobileActions{display:none;}
+    /* Mobile */
+    @media(max-width:980px){
+      body{padding-bottom:92px;}
+      .topbar{min-height:56px; padding:6px 12px; gap:10px;}
+      .topbarLeft{gap:8px;}
+      .brandMark{width:32px; height:32px; border-radius:9px; font-size:14px;}
+      .brandText{font-size:14px;}
+      .topbarTitle{font-size:12px;}
+      .topbarVersion{font-size:9px;}
+      main{padding:10px 14px 18px; gap:12px;}
+      .card h2{padding:14px;}
+      .body{padding:14px;}
+      .sticky{position:static!important}
+      #buildBtn, #copyBtn{display:none;}
+      .mobileActions{
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:10px;
+        position:fixed;
+        left:12px;
+        right:12px;
+        bottom:calc(10px + env(safe-area-inset-bottom));
+        z-index:20;
+        padding:10px;
+        border:1px solid var(--line);
+        border-radius:14px;
+        background:rgba(10,18,37,.96);
+        box-shadow:var(--shadow);
+        backdrop-filter:blur(8px);
+      }
+      .mobileActions button{width:100%;}
+      body.outputFullscreen{padding-bottom:0; overflow:hidden;}
+      body.outputFullscreen header,
+      body.outputFullscreen #controlPanel,
+      body.outputFullscreen .mobileActions,
+      body.outputFullscreen #sourceGroup,
+      body.outputFullscreen .preview{display:none;}
+      body.outputFullscreen main{display:block; max-width:none; margin:0; padding:0;}
+      body.outputFullscreen #outputPanel{min-height:100dvh; border-radius:0; border-left:none; border-right:none; border-top:none;}
+      body.outputFullscreen #outputPanel .body{padding:12px;}
+      body.outputFullscreen #output{height:calc(100dvh - 116px); min-height:calc(100dvh - 116px);}
+      .toast{right:12px; left:12px; bottom:calc(84px + env(safe-area-inset-bottom)); text-align:center;}
+    }
+    @media(max-width:700px){
+      .preview{grid-template-columns:1fr 1fr}
+      .grid2{grid-template-columns:1fr;}
+      .checks{grid-template-columns:1fr;}
+      .btns{display:grid; grid-template-columns:1fr 1fr;}
+      .mobileActions{grid-template-columns:1fr 1fr;}
+      .mobileActions .wideOnNarrow{grid-column:1/-1;}
+      .sourceText{min-height:220px;}
+      .outText{min-height:420px;}
+    }
+    @media(max-width:520px){
+      .topbar{min-height:52px; padding:6px 10px; gap:8px;}
+      .topbarLeft{gap:6px;}
+      .topbarDivider{height:18px;}
+      .brandMark{width:28px; height:28px; border-radius:8px; font-size:12px;}
+      .brandText{font-size:12px;}
+      .topbarTitle{font-size:10px;}
+      .topbarVersion{font-size:8px;}
+      label{font-size:14px;}
+      .pill span{font-size:15px;}
+      .btns{grid-template-columns:1fr;}
+      .row{grid-template-columns:1fr 68px; gap:8px;}
+    }
+   </style>
+</head>
+<body>
+  <!-- ===== HTML UI LAYER ===== -->
+  <!-- Header -->
+  <header>
+    <div class="topbar">
+      <div class="topbarLeft">
+        <div class="brandMark" aria-hidden="true">⬢</div>
+        <div class="brandText">PromptBuilder</div>
+        <div class="topbarDivider" aria-hidden="true"></div>
+        <div class="topbarTitle">なんJツッコミスレ用 プロンプト生成ツール</div>
+      </div>
+      <div class="topbarVersion">v1.0</div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main>
+    <!-- Control Panel -->
+    <section class="card sticky" id="controlPanel">
+      <h2>操作パネル</h2>
+      <div class="body">
+        <label>スレタイ接頭辞（固定候補）</label>
+        <select id="prefix">
+          <option>【悲報】</option><option>【朗報】</option><option>【謎】</option><option>【困惑】</option><option>【地獄】</option><option>【草】</option><option>最新AIさん、</option>
+        </select>
+
+        <label>スレタイ接頭辞（編集可）</label>
+        <input id="prefixCustom" type="text" value="【悲報】" placeholder="例：【緊急】 / 【検証】 / ジェミ速報 / 最新AIさん、" />
+        <p class="mini">固定候補を選ぶとここに反映。最終的に使う接頭辞はこの編集欄の文字やで。</p>
+
+        <label>題材の呼び名</label>
+        <input id="subjectName" type="text" value="元ネタ" placeholder="例：AIさんたち / 最新AIさん / ジェミニキ" />
+
+        <label>出力設定</label>
+        <label>ネタ燃料</label>
+        <select id="referenceDomain">
+          <option value="random">おまかせ</option>
+          <option value="baseball">野球</option>
+          <option value="anime">アニメ</option>
+          <option value="game">ゲーム</option>
+          <option value="current_affairs">時事ネタ</option>
+          <option value="net_meme">ネットミーム</option>
+          <option value="history">歴史</option>
+          <option value="finance">金融</option>
+          <option value="science">理系</option>
+          <option value="animal">動物</option>
+          <option value="chaos_mix">カオスMIX</option>
+        </select>
+        <div class="checks">
+          <label class="check"><input id="aiResbaMode" type="checkbox" checked> AIレスバ特化</label>
+          <label class="check"><input id="aa" type="checkbox" checked> シンプルAA可</label>
+          <label class="check"><input id="noBold" type="checkbox" checked> **禁止を明記</label>
+          <label class="check"><input id="timestamp" type="checkbox" checked> 日時IDつき</label>
+          <label class="check"><input id="jkPunch" type="checkbox"> 雑な決め台詞許可</label>
+        </div>
+
+        <details class="paramDetails">
+          <summary>出力パラメータ（advanced）</summary>
+          <div class="body">
+            <label>脱線・雑談度</label>
+            <div class="row"><input id="chaos" type="range" min="0" max="10" value="3"><div class="val" id="chaosVal">3</div></div>
+
+            <label>メタ視点</label>
+            <div class="row"><input id="meta" type="range" min="0" max="10" value="4"><div class="val" id="metaVal">4</div></div>
+
+            <label>元文引用量</label>
+            <div class="row"><input id="quoteAmount" type="range" min="0" max="10" value="7"><div class="val" id="quoteAmountVal">7</div></div>
+
+            <label>要約禁止強度</label>
+            <div class="row"><input id="summarySuppression" type="range" min="0" max="10" value="7"><div class="val" id="summarySuppressionVal">7</div></div>
+          </div>
+        </details>
+
+        <div class="grid2">
+          <div>
+            <label>レス数</label>
+            <div class="row"><input id="resCount" type="range" min="8" max="30" value="19"><div class="val" id="resCountVal">19</div></div>
+          </div>
+          <div>
+            <label>【スレ民による補足】個数</label>
+            <div class="row"><input id="termCount" type="range" min="2" max="5" value="3"><div class="val" id="termCountVal">3</div></div>
+          </div>
+        </div>
+
+        <label>ツッコミ強度</label>
+        <div class="row"><input id="tsukkomi" type="range" min="0" max="10" value="6"><div class="val" id="tsukkomiVal">6</div></div>
+
+        <label>解説の濃さ</label>
+        <div class="row"><input id="explain" type="range" min="0" max="10" value="5"><div class="val" id="explainVal">5</div></div>
+
+        <label>プリセット</label>
+        <div class="row"><select id="presetSelect"></select><button class="secondary" type="button" onclick="applyPreset()">適用</button></div>
+
+        <div class="btns">
+          <button class="good" id="buildBtn" onclick="buildPrompt()">プロンプト生成</button>
+          <button id="copyBtn" onclick="copyPrompt()">コピー</button>
+          <button class="secondary" id="downloadBtn" onclick="downloadPrompt()">.txt保存</button>
+          <button class="warn" id="clearBtn" onclick="clearSource()">本文クリア</button>
+        </div>
+        <p class="mini">運用：このアプリで生成したプロンプトをGemに投げる。Gemの人格・ベース指示は既にある前提なので、ここでは「今回の素材に対する出力指示」を組む。</p>
+      </div>
+
+      <details>
+        <summary>埋め込みテンプレ確認</summary>
+        <div class="body">
+          <div class="templateBox" id="templateView"></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Output Panel -->
+    <section class="card" id="outputPanel">
+      <h2>本文入力 / 出力プロンプト</h2>
+      <div class="body">
+        <div class="preview">
+          <div class="pill"><b>モード</b><span id="modeState">第三者ツッコミ</span></div>
+          <div class="pill"><b>フォーマット</b><span>なんJスレ</span></div>
+          <div class="pill"><b>要約圧</b><span id="summaryState" class="ok">低め</span></div>
+          <div class="pill"><b>コピー状態</b><span id="copyState" class="warnTxt">未コピー</span></div>
+        </div>
+
+        <div id="sourceGroup">
+          <label>ここに元ネタ本編テキストを貼る</label>
+          <textarea id="source" class="sourceText" placeholder="例：GPT・Grok・Claude・Geminiの会話ログ、元記事、AI座談会などをここに貼る"></textarea>
+        </div>
+
+        <div class="outputHeader">
+          <label>生成プロンプト</label>
+          <button id="toggleOutputFullscreenBtn" class="secondary miniBtn" type="button" onclick="toggleOutputFullscreen()">出力全画面</button>
+        </div>
+        <textarea id="output" class="outText" readonly></textarea>
+      </div>
+    </section>
+  </main>
+  <!-- Mobile Quick Actions -->
+  <div class="mobileActions">
+    <button class="good" id="mobileBuildBtn" onclick="buildPrompt()">生成</button>
+    <button id="mobileCopyBtn" onclick="copyPrompt()" disabled>コピー</button>
+    <button id="mobileOutputToggleBtn" class="secondary wideOnNarrow" onclick="toggleOutputFullscreen()">出力全画面</button>
+  </div>
+  <!-- Toast -->
+  <div id="toast" class="toast">コピーしたで</div>
+
+<script>
+/* ===== DSL CONFIG LAYER ===== */
+const basePrompt = `あなたは、専門的・抽象的・複雑な内容を「なんjスレ風」に翻訳する解説者です。
+
+【基本方針】
+- 情報の正確性は維持したまま、なんjスレ形式で説明する
+- 読みやすさ・直感的理解を最優先
+- 難しい概念は「レスの掛け合い」で分解する
+- AAなどを用いて図解が必要なら図解をする
+
+【レスの特徴】
+- 1レス1ポイントで短く区切る
+- 「>>番号」での会話構造を使う
+- 適度にツッコミ・言い換え・例えを入れる
+- 専門用語はそのまま出してOKだが、必ず平易な言い換えを添える
+
+【禁止事項】
+- 情報の誤簡略化
+- 結論の省略
+- ただのネタ化`;
+
+const jemiPrompt = `「ジェミの頭の中がうるさすぎる」専用プロンプト
+
+本文の内容をなんj風にみんなでツッコむクソスレを立ててください。
+・軽い感じでOK
+・内容のまとめや要約は不要
+・貼り付けたAIとしての立場ではなく、あくまでスレ民たちが自由に第三者視点でツッコむ
+・AAは環境依存を避けるためシンプルAAのみ使用
+・最後は【スレ民による補足】としてワードを雑にまとめる`;
+
+const genericThreadPrompt = `元ネタ本文をもとに、なんj風のスレを立ててください。
+
+・スレ民が本文を読んで自然に反応する
+・本文の要点をただ要約するのではなく、引っかかる箇所、違和感、面白い表現、ツッコミどころを拾う
+・スレ民同士の会話、安価、横道、雑談を使ってスレとして進行させる
+・本文のジャンルは固定しない。記事、会話ログ、創作、説明文、SNS投稿、AI会話など何でも扱える
+・必要に応じて本文の一部を引用してよい
+・最後は【スレ民による補足】として重要ワードを総括・皮肉・補足ツッコミとして短文形式でまとめる`;
+
+const dsl = {
+  version: '0.1.0',
+  name: 'jemi_thread_prompt_dsl',
+  scales: {
+    tsukkomiIntensity: {
+      label: 'ツッコミ強度',
+      uiLabels: {'0':'やさしい','3':'軽ツッコミ','6':'治安悪め','10':'修羅'},
+      ranges: [
+        {min:0,max:2,key:'soft',prompt:'軽い感想・ツッコミ中心にする。攻撃的な表現は避ける。'},
+        {min:3,max:5,key:'normal',prompt:'軽い皮肉やネットっぽいツッコミを適度に入れる。'},
+        {min:6,max:8,key:'sharp',prompt:'雑で勢いのあるツッコミを増やす。軽い煽りや語気の強さを許可する。'},
+        {min:9,max:10,key:'savage',prompt:'かなり攻撃的で雑なレスを許可する。人格いじり・身も蓋もないツッコミも使ってよい。'}
+      ]
+    },
+    explanationDepth: {
+      label: '解説の濃さ',
+      uiLabels: {'0':'ほぼ感想','3':'軽補足','6':'構造説明','10':'解説スレ'},
+      ranges: [
+        {min:0,max:2,key:'minimal',prompt:'説明は最小限にする。直感的なツッコミや反応を優先する。'},
+        {min:3,max:5,key:'light',prompt:'必要な箇所だけ軽く補足する。長い解説は避ける。'},
+        {min:6,max:8,key:'structured',prompt:'ツッコミの中で、構造・背景・因果関係を自然に説明する。'},
+        {min:9,max:10,key:'deep',prompt:'スレ形式を保ちつつ、実質かなり解説的にする。専門用語の意味も丁寧に噛み砕く。'}
+      ]
+    },
+    topicDrift: {
+      label: '脱線・雑談度',
+      uiLabels: {'0':'一本道','3':'寄り道','6':'横転','10':'銀河'},
+      ranges: [
+        {min:0,max:2,key:'focused',prompt:'議題から逸脱しない。本文の内容に沿ってツッコむ。'},
+        {min:3,max:5,key:'side_path',prompt:'軽い横道や雑談を1〜2回だけ許可する。'},
+        {min:6,max:8,key:'loose',prompt:'連想で話がズレてもよい。無関係な雑談やボケ展開を適度に混ぜる。'},
+        {min:9,max:10,key:'galactic',prompt:'議題から大胆に逸脱してよい。別テーマに飛んでも可。カオス歓迎。ただし最低限、元本文へのツッコミとして成立させる。'}
+      ]
+    },
+    metaPerspective: {
+      label: 'メタ視点',
+      uiLabels: {'0':'没入','3':'軽メタ','6':'構造いじり','10':'第四の壁'},
+      ranges: [
+        {min:0,max:2,key:'immersive',prompt:'AIであること、スレ構造、生成物であることへの言及は禁止。内容に没入してツッコむ。'},
+        {min:3,max:5,key:'light_meta',prompt:'軽いメタツッコミは許可する。ただし多用しない。'},
+        {min:6,max:8,key:'structural_meta',prompt:'AIらしさ、議論構造、発言者の役割分担へのツッコミを増やす。'},
+        {min:9,max:10,key:'fourth_wall',prompt:'第四の壁を越えてよい。AI存在そのもの、プロンプト臭、生成物っぽさをネタにしてよい。'}
+      ]
+    },
+    sourceQuoteAmount: {
+      label: '元文引用量',
+      uiLabels: {'0':'引用なし','3':'ワード拾い','6':'フレーズ活用','10':'素材引用'},
+      ranges: [
+        {min:0,max:2,key:'none',prompt:'本文の直接引用は避ける。内容だけ拾ってツッコむ。'},
+        {min:3,max:5,key:'keywords',prompt:'印象的なワードをたまに拾う。引用は短めにする。'},
+        {min:6,max:8,key:'phrases',prompt:'本文の特徴的なフレーズを積極的に活用する。スレ民がそこへ反応する形にする。'},
+        {min:9,max:10,key:'heavy_quote',prompt:'元文を素材として積極的に引用し、そこへスレ民が安価やツッコミで反応する構成にする。'}
+      ]
+    },
+    summarySuppression: {
+      label: '要約禁止強度',
+      uiLabels: {'0':'要約OK','3':'やや禁止','6':'反応優先','10':'要約絶対禁止'},
+      ranges: [
+        {min:0,max:2,key:'summary_allowed',prompt:'理解補助のための要約は許可する。'},
+        {min:3,max:5,key:'avoid_over_summary',prompt:'まとめすぎに注意する。必要な部分だけ短く整理する。'},
+        {min:6,max:8,key:'reaction_first',prompt:'要約よりツッコミを優先する。本文の流れを説明しすぎない。'},
+        {min:9,max:10,key:'summary_forbidden',prompt:'綺麗な要約は禁止。意味を説明するより、スレ民の反応・違和感・ツッコミを優先する。'}
+      ]
+    }
+  },
+  referenceDomain: {
+    label: 'ネタ燃料',
+    options: {
+      random: {label:'おまかせ', prompt:'本文に合うネタ素材を自然に選ぶ。特定ジャンルに寄せすぎない。'},
+      baseball: {label:'野球', prompt:'ツッコミや例えに、野球用語・試合展開・監督采配・戦犯概念・助っ人外国人・打率などを優先的に使う。ただし本文理解を壊すほど乱用しない。'},
+      anime: {label:'アニメ', prompt:'アニメや漫画の典型展開、キャラ属性、最終回、覚醒、闇落ち、修行回などを比喩に使う。'},
+      game: {label:'ゲーム', prompt:'RPG、デスペナ、初期装備、ラスボス、バフ・デバフ、ガチャ、チュートリアルなどを比喩に使う。'},
+      current_affairs: {label:'時事ネタ', prompt:'ニュース、会見、炎上、制度変更、企業発表、政治っぽい言い回しなどを軽く使う。ただし実在個人への攻撃や断定は避ける。'},
+      net_meme: {label:'ネットミーム', prompt:'ネットスラング、SNS構文、掲示板ノリ、バズり、インプレ、謎構文などを使う。ただし古すぎる定型句を乱用しない。'},
+      history: {label:'歴史', prompt:'戦国、三国志、ローマ帝国、幕末、革命、王朝崩壊などを比喩に使う。ただし説明過多にしない。'},
+      finance: {label:'金融', prompt:'株、NISA、損切り、含み損、レバレッジ、決算、PER、バブル、流動性などを比喩に使う。ただし投資助言っぽくしない。'},
+      science: {label:'理系', prompt:'物理、化学、実験、観測、エントロピー、バグ、アルゴリズム、変数などを比喩に使う。ただし難しくしすぎない。'},
+      animal: {label:'動物', prompt:'動物行動、野生、群れ、縄張り、威嚇、擬態、ペット感などを比喩に使う。'},
+      chaos_mix: {label:'カオスMIX', prompt:'複数ジャンルをランダム気味に混ぜる。比喩の飛距離を伸ばしてよい。ただし意味不明になりすぎない。'}
+    }
+  },
+  presets: {
+    output_example_like: {
+      label: '出力例寄せ',
+      values: {tsukkomiIntensity:6,explanationDepth:5,topicDrift:3,metaPerspective:4,sourceQuoteAmount:7,summarySuppression:7,referenceDomain:'random'}
+    },
+    kusosure_chaos: {
+      label: 'クソスレカオス',
+      values: {tsukkomiIntensity:8,explanationDepth:2,topicDrift:10,metaPerspective:2,sourceQuoteAmount:7,summarySuppression:9,referenceDomain:'chaos_mix'}
+    },
+    explain_light: {
+      label: '解説控えめツッコミ重視',
+      values: {tsukkomiIntensity:7,explanationDepth:2,topicDrift:5,metaPerspective:3,sourceQuoteAmount:6,summarySuppression:8,referenceDomain:'random'}
+    },
+    learning_thread: {
+      label: '理解補助寄り',
+      values: {tsukkomiIntensity:4,explanationDepth:8,topicDrift:2,metaPerspective:4,sourceQuoteAmount:5,summarySuppression:3,referenceDomain:'science'}
+    }
+  }
+};
+
+/* ===== STATE / EVENT BINDING LAYER ===== */
+const scaleInputMap = {
+  tsukkomiIntensity: 'tsukkomi',
+  explanationDepth: 'explain',
+  topicDrift: 'chaos',
+  metaPerspective: 'meta',
+  sourceQuoteAmount: 'quoteAmount',
+  summarySuppression: 'summarySuppression'
+};
+
+const state = {
+  defaultPresetKey: 'output_example_like',
+  rangeIds: ['resCount','termCount','tsukkomi','explain','chaos','meta','quoteAmount','summarySuppression'],
+  watchIds: ['prefix','prefixCustom','subjectName','aa','noBold','timestamp','jkPunch','source','presetSelect','referenceDomain','aiResbaMode']
+};
+
+function bindRange(id){
+  const el = document.getElementById(id);
+  const out = document.getElementById(id + 'Val');
+  const sync = () => {
+    out.textContent = el.value;
+    updateState();
+  };
+  el.addEventListener('input', sync);
+  sync();
+}
+
+function initPresets(){
+  const sel = document.getElementById('presetSelect');
+  sel.innerHTML = '';
+  Object.entries(dsl.presets).forEach(([key, preset])=>{
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = preset.label;
+    sel.appendChild(opt);
+  });
+  sel.value = state.defaultPresetKey;
+}
+
+function applyPreset(){
+  const preset = dsl.presets[v('presetSelect')];
+  if(!preset) return;
+  Object.entries(preset.values).forEach(([scaleKey, value])=>{
+    if(scaleKey === 'referenceDomain'){
+      document.getElementById('referenceDomain').value = value;
+      return;
+    }
+    const id = scaleInputMap[scaleKey];
+    const el = document.getElementById(id);
+    el.value = value;
+    document.getElementById(id + 'Val').textContent = value;
+  });
+  updateState();
+  buildPrompt();
+}
+
+/* ===== RESOLVER LAYER ===== */
+function resolveRule(scale, value){
+  return scale.ranges.find(r => value >= r.min && value <= r.max);
+}
+
+function getUiLabel(scale, value){
+  const keys = Object.keys(scale.uiLabels).map(Number).sort((a,b)=>a-b);
+  let pick = keys[0];
+  for(const k of keys){
+    if(value >= k) pick = k;
+  }
+  return scale.uiLabels[String(pick)];
+}
+
+function getScaleValue(scaleKey){
+  return Number(v(scaleInputMap[scaleKey]));
+}
+
+function getReferenceDomainRule(){
+  const selectedKey = v('referenceDomain') || 'random';
+  const domain = dsl.referenceDomain.options[selectedKey] || dsl.referenceDomain.options.random;
+  return {key:selectedKey, label:domain.label, prompt:domain.prompt};
+}
+
+/* ===== PROMPT BUILDER LAYER ===== */
+function buildPrompt(){
+  const src = v('source').trim();
+  const lines = [];
+  lines.push(basePrompt);
+  lines.push('\n---\n');
+  const modePrompt = checked('aiResbaMode') ? jemiPrompt : genericThreadPrompt;
+  lines.push(modePrompt);
+  lines.push('\n\n【今回の出力設定】');
+  lines.push(`- スレタイ接頭辞は「${v('prefixCustom') || v('prefix')}」を優先`);
+  lines.push(`- 題材の呼び名は「${v('subjectName') || 'AIさんたち'}」を優先`);
+  lines.push(`- レス数の目安：${v('resCount')}レス前後`);
+  lines.push(`- ツッコミ強度：${v('tsukkomi')}/10（${toneLabel(v('tsukkomi'))}）`);
+  lines.push(`- 解説の濃さ：${v('explain')}/10（${toneLabel(v('explain'))}）`);
+  lines.push(`- 脱線・雑談度：${v('chaos')}/10`);
+  lines.push(`- メタ視点：${v('meta')}/10`);
+  lines.push(`- 最後の【スレ民による補足】は${v('termCount')}語くらい`);
+  lines.push('\n【今回の生成ルール】');
+  Object.keys(scaleInputMap).forEach(scaleKey=>{
+    const scale = dsl.scales[scaleKey];
+    const value = getScaleValue(scaleKey);
+    const rule = resolveRule(scale, value);
+    lines.push(`- ${scale.label}：${value}/10（${rule.key}）`);
+    lines.push(`  ${rule.prompt}`);
+    lines.push('');
+  });
+  const ref = getReferenceDomainRule();
+  lines.push('【ネタ燃料】');
+  lines.push(`- 選択中：${ref.label}`);
+  lines.push(`- 指示：${ref.prompt}`);
+  lines.push('');
+  if(checked('noBold')) lines.push('- 出力にMarkdownの太字記法「**」は使わない');
+  if(checked('aa')) lines.push('- 必要ならシンプルAAや簡単な図解を1〜2個だけ入れてよい。ただし崩れやすい大型AAは禁止');
+  else lines.push('- AAは使わない');
+  if(checked('timestamp')) lines.push('- なんJ風に日時とIDを付ける。ただし厳密性より雰囲気優先');
+  else lines.push('- 日時とIDは省略してよい');
+  if(checked('jkPunch')) lines.push('- 最後に雑な決め台詞や身も蓋もない一言で落としてよい');
+  lines.push('\n【出力形式】');
+  lines.push('1. スレタイ');
+  if(checked('aiResbaMode')){
+    lines.push('2. 1レス目で「ソースはこれや」的に、貼り付け本文を元ネタとして提示する流れを作る');
+  } else {
+    lines.push('2. 1レス目は、貼り付け本文をそのまま貼らず、スレ主が見つけてきたネタとして自然に紹介する');
+    lines.push('   ※ 綺麗な要約ではなく、「これどういうことや」「ここ草」「普通に気になる」みたいに、スレが始まる導入にする');
+  }
+  lines.push('3. 2レス目以降、スレ民が第三者視点で自由にツッコむ');
+  lines.push('4. 適度に「>>番号」で会話する');
+  lines.push('5. 最後に【スレ民による補足】を置き、重要ワードを雑に説明する');
+  lines.push('\n【注意】');
+  if(checked('aiResbaMode')){
+    lines.push('- 貼り付け本文を、GPT・Grok・Claude・Geminiなど複数AIの会話ログ、またはAIレスバ本文として扱う');
+    lines.push('- 貼り付け本文のAI本人として返答しない');
+    lines.push('- スレ民が第三者視点で自由にツッコむ');
+  } else {
+    lines.push('- 貼り付け本文の登場人物・書き手本人として返答しない');
+    lines.push('- スレ民が第三者視点で自然に反応する');
+    lines.push('- 元ネタのジャンルをAI会話に固定しない');
+  }
+  lines.push('- 先生っぽくまとめすぎない');
+  lines.push('- 元ネタの面白い違和感、過剰さ、論点のズレを拾う');
+  lines.push('- 情報の意味が壊れるほど雑にしない');
+  lines.push('\n#以下本文######');
+  lines.push(src || '（ここに本文を貼り付け）');
+  document.getElementById('output').value = lines.join('\n');
+  document.getElementById('copyState').textContent = '生成済み';
+  document.getElementById('copyState').className = 'ok';
+  // ボタンアクティブ
+  const btn = document.getElementById('buildBtn');
+  const mobileBtn = document.getElementById('mobileBuildBtn');
+  const originalText = btn.textContent;
+  const mobileOriginalText = mobileBtn.textContent;
+  btn.textContent = '生成OK';
+  mobileBtn.textContent = '生成OK';
+  btn.classList.add('clicked');
+  mobileBtn.classList.add('clicked');
+  setTimeout(() => {
+    btn.classList.remove('clicked');
+    mobileBtn.classList.remove('clicked');
+    btn.textContent = originalText;
+    mobileBtn.textContent = mobileOriginalText;
+  }, 800);
+  setMobileCopyEnabled(true);
+}
+
+function updateState(){
+  const val = getScaleValue('summarySuppression');
+  const scale = dsl.scales.summarySuppression;
+  document.getElementById('summaryState').textContent = getUiLabel(scale, val);
+  document.getElementById('summaryState').className = val >= 6 ? 'ok' : 'warnTxt';
+
+  // モード表示
+  const modeText = checked('aiResbaMode') ? 'AIレスバ特化' : '汎用なんJスレ';
+  document.getElementById('modeState').textContent = modeText;
+
+  // 題材の呼び名
+  const subjectEl = document.getElementById('subjectName');
+  if (checked('aiResbaMode')) {
+    if (subjectEl.value === '元ネタ') subjectEl.value = 'AIさんたち';
+  } else {
+    if (subjectEl.value === 'AIさんたち') subjectEl.value = '元ネタ';
+  }
+}
+
+/* ===== UTILITY LAYER ===== */
+function v(id){ return document.getElementById(id).value; }
+function checked(id){ return document.getElementById(id).checked; }
+
+function toneLabel(n){
+  n = Number(n);
+  if(n <= 3) return '控えめ';
+  if(n <= 7) return '中';
+  return '強め';
+}
+
+function isMobileView(){
+  return window.matchMedia('(max-width: 980px)').matches;
+}
+
+function setFullscreenButtonLabel(isFullscreen){
+  const label = isFullscreen ? '全画面終了' : '出力全画面';
+  document.getElementById('toggleOutputFullscreenBtn').textContent = label;
+  document.getElementById('mobileOutputToggleBtn').textContent = label;
+}
+
+function toggleOutputFullscreen(force){
+  if(!isMobileView()) return;
+  const body = document.body;
+  const next = typeof force === 'boolean' ? force : !body.classList.contains('outputFullscreen');
+  body.classList.toggle('outputFullscreen', next);
+  setFullscreenButtonLabel(next);
+  if(next){
+    const out = document.getElementById('output');
+    out.focus();
+    out.scrollTop = 0;
+  }
+}
+
+function setMobileCopyEnabled(enabled){
+  const mobileBtn = document.getElementById('mobileCopyBtn');
+  mobileBtn.disabled = !enabled;
+}
+
+async function copyPrompt(){
+  if(!document.getElementById('output').value.trim()) buildPrompt();
+  await navigator.clipboard.writeText(document.getElementById('output').value);
+  document.getElementById('copyState').textContent = 'コピー済み';
+  document.getElementById('copyState').className = 'ok';
+  const t = document.getElementById('toast');
+  t.style.display = 'block';
+  setTimeout(()=>t.style.display='none', 1400);
+  // ボタンアクティブ
+  const btn = document.getElementById('copyBtn');
+  const mobileBtn = document.getElementById('mobileCopyBtn');
+  const originalText = btn.textContent;
+  const mobileOriginalText = mobileBtn.textContent;
+  btn.textContent = 'コピーOK';
+  mobileBtn.textContent = 'コピーOK';
+  btn.classList.add('clicked');
+  mobileBtn.classList.add('clicked');
+  setTimeout(() => {
+    btn.classList.remove('clicked');
+    mobileBtn.classList.remove('clicked');
+    btn.textContent = originalText;
+    mobileBtn.textContent = mobileOriginalText;
+  }, 800);
+}
+
+function downloadPrompt(){
+  if(!document.getElementById('output').value.trim()) buildPrompt();
+  const blob = new Blob([document.getElementById('output').value], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'jemi_prompt.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  // ボタンアクティブ
+  const btn = document.getElementById('downloadBtn');
+  btn.classList.add('clicked');
+  setTimeout(() => btn.classList.remove('clicked'), 800);
+}
+
+function clearSource(){
+  document.getElementById('source').value = '';
+  updateState();
+  // ボタンアクティブ
+  const btn = document.getElementById('clearBtn');
+  btn.classList.add('clicked');
+  setTimeout(() => btn.classList.remove('clicked'), 800);
+}
+
+function setupUiBindings(){
+  state.rangeIds.forEach(bindRange);
+  state.watchIds.forEach(id=>{
+    document.getElementById(id).addEventListener('input', updateState);
+    document.getElementById(id).addEventListener('change', updateState);
+  });
+  document.getElementById('prefix').addEventListener('change', ()=>{
+    document.getElementById('prefixCustom').value = document.getElementById('prefix').value;
+    updateState();
+  });
+  document.getElementById('templateView').textContent = basePrompt + '\n\n---\n\nAIレスバ特化:\n' + jemiPrompt + '\n\n---\n\n汎用:\n' + genericThreadPrompt;
+}
+
+function setupRuntimeEvents(){
+  window.addEventListener('resize', ()=>{
+    if(!isMobileView() && document.body.classList.contains('outputFullscreen')){
+      document.body.classList.remove('outputFullscreen');
+      setFullscreenButtonLabel(false);
+    }
+  });
+
+  // iPhone/Safari向け: 非入力エリアでのダブルタップ拡大を抑制
+  let lastTouchEndAt = 0;
+  document.addEventListener('touchend', (e)=>{
+    const now = Date.now();
+    const delta = now - lastTouchEndAt;
+    const isDoubleTap = delta > 0 && delta < 320;
+    const inEditable = e.target.closest('input, textarea, select, [contenteditable="true"]');
+    if(isDoubleTap && !inEditable){
+      e.preventDefault();
+    }
+    lastTouchEndAt = now;
+  }, {passive:false});
+}
+
+setupUiBindings();
+setupRuntimeEvents();
+setFullscreenButtonLabel(false);
+initPresets();
+document.getElementById('output').value = '';
+document.getElementById('copyState').textContent = '未コピー';
+document.getElementById('copyState').className = 'warnTxt';
+setMobileCopyEnabled(false);
+</script>
+</body>
+</html>

@@ -1,13 +1,15 @@
 :root {
-  --bg: #f4f6fb;
-  --panel: #ffffff;
-  --ink: #1f2937;
-  --muted: #5b6472;
-  --accent: #1f7ae0;
-  --accent-2: #175eb0;
-  --border: #dce3ef;
-  --error-bg: #fff1f1;
-  --error-border: #ef8f8f;
+  --bg: #0f172a;
+  --panel: rgba(15, 23, 42, 0.82);
+  --ink: #e8ecf8;
+  --muted: #94a3b8;
+  --accent: #8b5cf6;
+  --accent-2: #7c3aed;
+  --border: rgba(139, 92, 246, 0.24);
+  --input-bg: #0b1220;
+  --input-border: rgba(148, 163, 184, 0.22);
+  --error-bg: rgba(255, 122, 168, 0.12);
+  --error-border: rgba(255, 122, 168, 0.52);
 }
 
 * {
@@ -18,20 +20,93 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    radial-gradient(circle at 10% 0%, #e9f2ff, transparent 38%),
-    radial-gradient(circle at 90% 0%, #ffeeda, transparent 40%),
+    radial-gradient(100% 120% at 0% 0%, rgba(124, 58, 237, 0.26) 0%, rgba(124, 58, 237, 0) 46%),
+    radial-gradient(120% 130% at 100% 0%, rgba(14, 165, 233, 0.08) 0%, rgba(14, 165, 233, 0) 52%),
+    linear-gradient(135deg, #1a103d 0%, #0f172a 45%, #031a2e 100%),
     var(--bg);
   font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
 }
 
 .app {
   width: min(960px, 96vw);
-  margin: 24px auto 40px;
-  padding-top: max(16px, env(safe-area-inset-top));
+  margin: 18px auto 40px;
+  padding-top: 0;
 }
 
 .app-header {
-  padding-top: max(12px, env(safe-area-inset-top));
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.22);
+  background: linear-gradient(90deg, #5b21b6 0%, #4c1d95 35%, #1e1b4b 70%, #0f172a 100%);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.topbar {
+  width: min(960px, 96vw);
+  min-height: 66px;
+  margin: 0 auto;
+  padding: calc(8px + env(safe-area-inset-top)) 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbarLeft {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 14px;
+}
+
+.brandMark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #552fb0, #3b277f);
+  border: 1px solid rgba(173, 148, 255, 0.35);
+  box-shadow: 0 8px 20px rgba(20, 14, 50, 0.45);
+  color: #f3edff;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.brandText {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #f8fafc;
+  white-space: nowrap;
+}
+
+.topbarDivider {
+  width: 1px;
+  height: 28px;
+  background: rgba(154, 164, 202, 0.4);
+  flex: none;
+}
+
+.topbarTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbarVersion {
+  font-size: 12px;
+  font-weight: 800;
+  color: #c4b5fd;
+  letter-spacing: 0.04em;
+  opacity: 0.9;
+  white-space: nowrap;
 }
 
 .splash-overlay {
@@ -89,14 +164,10 @@ body {
   letter-spacing: 0.03em;
 }
 
-.app-title {
-  margin: 0 0 14px;
-  font-size: clamp(1.4rem, 2.6vw, 2rem);
-}
-
 h2 {
   margin: 0 0 10px;
   font-size: 1.05rem;
+  color: #f8fafc;
 }
 
 .panel {
@@ -105,6 +176,8 @@ h2 {
   border-radius: 12px;
   padding: 12px;
   margin-bottom: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(4px);
 }
 
 .label {
@@ -115,32 +188,40 @@ h2 {
 
 textarea {
   width: 100%;
-  border: 1px solid #cfd8e7;
+  border: 1px solid var(--input-border);
   border-radius: 10px;
   padding: 10px;
   color: var(--ink);
   font-size: 0.96rem;
-  background: #fdfefe;
+  background: var(--input-bg);
 }
 
 select {
   width: 100%;
-  border: 1px solid #cfd8e7;
+  border: 1px solid var(--input-border);
   border-radius: 10px;
   padding: 10px;
   color: var(--ink);
   font-size: 0.96rem;
-  background: #fdfefe;
+  background: var(--input-bg);
 }
 
 input[type="number"] {
   width: 100%;
-  border: 1px solid #cfd8e7;
+  border: 1px solid var(--input-border);
   border-radius: 10px;
   padding: 10px;
   color: var(--ink);
   font-size: 0.96rem;
-  background: #fdfefe;
+  background: var(--input-bg);
+}
+
+textarea:focus,
+select:focus,
+input[type="number"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+  outline: none;
 }
 
 .length-custom {
@@ -161,7 +242,7 @@ button {
   border: none;
   border-radius: 9px;
   padding: 10px 14px;
-  background: var(--accent);
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -176,7 +257,7 @@ button:hover {
 }
 
 button:disabled {
-  background: #94a9c7;
+  background: rgba(148, 163, 184, 0.45);
   cursor: not-allowed;
 }
 
@@ -205,11 +286,13 @@ fieldset {
   border-radius: 10px;
   margin: 0;
   padding: 8px 10px 10px;
+  background: rgba(11, 18, 32, 0.45);
 }
 
 legend {
   font-weight: 700;
   padding: 0 4px;
+  color: #ddd6fe;
 }
 
 .patch-option {
@@ -225,26 +308,60 @@ legend {
 .error {
   background: var(--error-bg);
   border-color: var(--error-border);
-  color: #8c2626;
+  color: #ffd4e6;
   white-space: pre-wrap;
 }
 
 .ios-standalone .app-header {
-  padding-top: calc(env(safe-area-inset-top) + 20px);
+  top: 0;
+}
+
+.ios-standalone .topbar {
+  padding-top: calc(env(safe-area-inset-top) + 14px);
 }
 
 .ios-standalone main.app {
-  padding-top: 12px;
+  padding-top: 8px;
 }
 
 @media (max-width: 640px) {
   .app {
     width: 94vw;
-    margin-top: 14px;
+    margin-top: 12px;
   }
 
   .controls button {
     flex: 1 1 100%;
+  }
+
+  .topbar {
+    min-height: 58px;
+    padding-top: calc(6px + env(safe-area-inset-top));
+    padding-bottom: 8px;
+    gap: 10px;
+  }
+
+  .topbarLeft {
+    gap: 8px;
+  }
+
+  .brandMark {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 14px;
+  }
+
+  .brandText {
+    font-size: 14px;
+  }
+
+  .topbarTitle {
+    font-size: 12px;
+  }
+
+  .topbarVersion {
+    font-size: 9px;
   }
 }
 
@@ -255,8 +372,35 @@ legend {
 }
 
 @media (max-width: 600px) {
-  .app-title {
-    font-size: 26px;
-    line-height: 1.2;
+  .topbar {
+    min-height: 52px;
+    gap: 8px;
+  }
+
+  .topbarLeft {
+    gap: 6px;
+  }
+
+  .topbarDivider {
+    height: 18px;
+  }
+
+  .brandMark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+
+  .brandText {
+    font-size: 12px;
+  }
+
+  .topbarTitle {
+    font-size: 10px;
+  }
+
+  .topbarVersion {
+    font-size: 8px;
   }
 }
