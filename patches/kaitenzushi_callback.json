@@ -1,0 +1,9 @@
+{
+  "id": "kaitenzushi_callback",
+  "type": "context_memory",
+  "label": "回転寿司コールバック",
+  "target": "scene",
+  "mode": "subtle",
+  "content": "議論中に『最初に何を取るか』の価値観対立を軽く再登場させる。過去ネタとして使い、主題を食わない範囲で笑いと連続性を作る。",
+  "guest_character": null
+}

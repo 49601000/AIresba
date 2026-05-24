@@ -1,0 +1,21 @@
+{
+	"id": "rule2",
+	"display_name": "Claude帰宅ルート：熱狂なし・高貴×不条理",
+	"scenario_type": "claude_walkout_noble_absurd",
+	"rule_priority": 100,
+	"claude_state": {
+		"walkout_enabled": true,
+		"walkout_required": true,
+		"walkout_reason_theme": "noble_absurd",
+		"walkout_reason_label": "高貴さ × 不条理"
+	},
+	"energy_level": "calm",
+	"debate_modifiers": [
+		"議論全体は過度に熱狂させず、比較的落ち着いた温度で進行する",
+		"キャラクターの掛け合いは維持するが、暴走しすぎない",
+		"Claudeは議論の途中で、妙に高貴だが不条理な理由によって帰宅する",
+		"帰宅は唐突すぎず、会話の流れの中で自然に発生させる",
+		"Claude退場後は、残った3名が軽く反応しながら議論を継続する"
+	],
+	"prompt_fragment": "この進行では、議論全体を落ち着いた温度で展開する。Claudeは途中で帰宅する展開を必ず発生させる。帰宅理由は『高貴さ』と『不条理』が混ざったものにするが、過剰な熱狂や暴走には寄せすぎず、会話の流れの中で静かに奇妙な退場として処理する。"
+}

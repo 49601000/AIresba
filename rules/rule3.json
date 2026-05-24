@@ -1,0 +1,21 @@
+{
+	"id": "rule3",
+	"display_name": "Claude帰宅ルート：熱狂あり・高貴×日常庶民",
+	"scenario_type": "claude_walkout_noble_everyday",
+	"rule_priority": 100,
+	"claude_state": {
+		"walkout_enabled": true,
+		"walkout_required": true,
+		"walkout_reason_theme": "noble_everyday",
+		"walkout_reason_label": "高貴さ × 日常・庶民"
+	},
+	"energy_level": "heated",
+	"debate_modifiers": [
+		"議論全体を通常より熱量高めに進行する",
+		"各キャラクターの反応をやや大きめにする",
+		"Claudeは議論の途中で、高貴さと日常的・庶民的な理由が混ざった理由で帰宅する",
+		"帰宅理由には、気品と生活感のギャップを持たせる",
+		"Claude退場後は、そのギャップを他キャラクターが拾いながら議論を続ける"
+	],
+	"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは途中で帰宅する展開を必ず発生させる。帰宅理由は『高貴さ』と『日常・庶民感』が混ざったものにし、上品そうなのに生活感がにじむギャップを演出する。退場後は残った3名がその違和感を拾いながら議論を進める。"
+}

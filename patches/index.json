@@ -1,0 +1,26 @@
+[
+  {
+    "id": "claude_noble_boost",
+    "label": "Claude高貴ブースト",
+    "type": "character_tuning",
+    "file": "claude_noble_boost.json"
+  },
+  {
+    "id": "claude_walkout_event",
+    "label": "Claude帰宅イベント補強",
+    "type": "event_patch",
+    "file": "claude_walkout_event.json"
+  },
+  {
+    "id": "hatoyome_guest",
+    "label": "ハトヨメ乱入",
+    "type": "guest_character",
+    "file": "hatoyome_guest.json"
+  },
+  {
+    "id": "kaitenzushi_callback",
+    "label": "回転寿司コールバック",
+    "type": "context_memory",
+    "file": "kaitenzushi_callback.json"
+  }
+]

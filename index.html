@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIレスバ演出エンジン v1.3</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <h1>AIレスバ演出エンジン v1.3</h1>
+
+    <section class="panel">
+      <label for="topicInput" class="label">議題</label>
+      <textarea id="topicInput" rows="3" placeholder="例: 回転寿司でまず何を食べるべきか"></textarea>
+    </section>
+
+    <section class="panel controls">
+      <button id="rollBtn" type="button">Roll (1d20)</button>
+      <button id="generateBtn" type="button">Generate Prompt</button>
+      <button id="copyBtn" type="button">Copy</button>
+    </section>
+
+    <section class="panel status">
+      <p>ダイスロール結果: <strong id="diceResult">未ロール</strong></p>
+      <p>適用ルール: <strong id="selectedRule">未選択</strong></p>
+    </section>
+
+    <section class="panel">
+      <h2>Patch Selector</h2>
+      <div id="patchContainer" class="patches"></div>
+    </section>
+
+    <section class="panel error" id="errorBox" hidden></section>
+
+    <section class="panel">
+      <label for="finalPrompt" class="label">Final Prompt</label>
+      <textarea id="finalPrompt" rows="22" readonly></textarea>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

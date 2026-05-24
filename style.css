@@ -1,0 +1,139 @@
+:root {
+  --bg: #f4f6fb;
+  --panel: #ffffff;
+  --ink: #1f2937;
+  --muted: #5b6472;
+  --accent: #1f7ae0;
+  --accent-2: #175eb0;
+  --border: #dce3ef;
+  --error-bg: #fff1f1;
+  --error-border: #ef8f8f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 0%, #e9f2ff, transparent 38%),
+    radial-gradient(circle at 90% 0%, #ffeeda, transparent 40%),
+    var(--bg);
+  font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+
+.app {
+  width: min(960px, 96vw);
+  margin: 24px auto 40px;
+}
+
+h1 {
+  margin: 0 0 14px;
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+}
+
+h2 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+textarea {
+  width: 100%;
+  border: 1px solid #cfd8e7;
+  border-radius: 10px;
+  padding: 10px;
+  color: var(--ink);
+  font-size: 0.96rem;
+  background: #fdfefe;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+button {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--accent-2);
+}
+
+button:disabled {
+  background: #94a9c7;
+  cursor: not-allowed;
+}
+
+.status p {
+  margin: 4px 0;
+  color: var(--muted);
+}
+
+.patches {
+  display: grid;
+  gap: 10px;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 0;
+  padding: 8px 10px 10px;
+}
+
+legend {
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+.patch-option {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.93rem;
+}
+
+.patch-option small {
+  color: var(--muted);
+}
+
+.error {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: #8c2626;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 640px) {
+  .app {
+    width: 94vw;
+    margin-top: 14px;
+  }
+
+  .controls button {
+    flex: 1 1 100%;
+  }
+}

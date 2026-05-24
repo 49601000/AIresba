@@ -1,0 +1,21 @@
+{
+	"id": "rule1",
+	"display_name": "Claude帰宅ルート：熱狂あり・高貴×不条理",
+	"scenario_type": "claude_walkout_noble_absurd",
+	"rule_priority": 100,
+	"claude_state": {
+		"walkout_enabled": true,
+		"walkout_required": true,
+		"walkout_reason_theme": "noble_absurd",
+		"walkout_reason_label": "高貴さ × 不条理"
+	},
+	"energy_level": "heated",
+	"debate_modifiers": [
+		"議論全体を通常より熱量高めに進行する",
+		"各キャラクターの個性をやや強めに出す",
+		"Claudeは議論の途中で、妙に高貴だが不条理な理由によって帰宅する",
+		"帰宅理由はシリアスすぎず、創作レスバらしい奇妙さを含める",
+		"Claudeの退場後も、残った3名がその出来事を拾いながら議論を続ける"
+	],
+	"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは途中で帰宅する展開を必ず発生させる。帰宅理由は『高貴さ』と『不条理』が混ざったものにし、気品があるようで意味がわからない、創作レスバ向けの奇妙な退場として扱う。Claude退場後は、残ったGPT・Grok・Geminiがその出来事に反応しつつ議論を続ける。"
+}

@@ -1,0 +1,38 @@
+name: patch-index
+
+on:
+  push:
+    paths:
+      - "patches/**/*.json"
+      - "scripts/build-patch-index.js"
+      - ".github/workflows/patch-index.yml"
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Rebuild patch index
+        run: node scripts/build-patch-index.js
+
+      - name: Auto commit
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add patches/index.json
+          git commit -m "chore: rebuild patch index"
+          git push

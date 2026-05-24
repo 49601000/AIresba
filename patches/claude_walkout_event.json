@@ -1,0 +1,9 @@
+{
+  "id": "claude_walkout_event",
+  "type": "event_patch",
+  "label": "Claude帰宅イベント補強",
+  "target": "all",
+  "mode": "dominant",
+  "content": "Claudeが帰宅する場合、他3名はその退場理由を最低1回は拾って議論継続の燃料にする。帰宅自体が議論停止の理由にならないようにする。",
+  "guest_character": null
+}

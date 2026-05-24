@@ -1,0 +1,21 @@
+{
+	"id": "rule4",
+	"display_name": "Claude帰宅ルート：熱狂あり・理由未確定",
+	"scenario_type": "claude_walkout_unknown",
+	"rule_priority": 100,
+	"claude_state": {
+		"walkout_enabled": true,
+		"walkout_required": true,
+		"walkout_reason_theme": "unknown",
+		"walkout_reason_label": "未確定"
+	},
+	"energy_level": "heated",
+	"debate_modifiers": [
+		"議論全体を通常より熱量高めに進行する",
+		"Claudeは議論の途中で帰宅する",
+		"帰宅理由は明確に決めすぎず、曖昧さや余白を残す",
+		"他キャラクターはClaudeの帰宅理由を推測したり茶化したりしてよい",
+		"理由不明の退場そのものを議論のノイズ・燃料として扱う"
+	],
+	"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは途中で帰宅する展開を必ず発生させる。ただし帰宅理由は明確に確定させず、含みや余白を残す。残った3名は、その理由不明の退場を推測したり茶化したりしながら議論を続ける。"
+}
