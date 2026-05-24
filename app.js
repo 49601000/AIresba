@@ -1440,18 +1440,7 @@ async function openGeminiWithPrompt(promptText) {
     console.warn("clipboard failed", error);
   }
 
-  const schemes = ["googlegemini://", "googleapp://robin"];
-  const fallback = "https://gemini.google.com/";
-
-  window.location.href = schemes[0];
-
-  setTimeout(() => {
-    window.location.href = schemes[1];
-
-    setTimeout(() => {
-      window.location.href = fallback;
-    }, 700);
-  }, 700);
+  window.location.href = "googlegemini://";
 }
 
 async function fetchJson(path, label) {
