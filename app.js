@@ -622,10 +622,6 @@ function formatBrainLayer(persona) {
 }
 
 function formatRuleLayer(rule, patchPayloads, guestCharacters) {
-  const modifiers = Array.isArray(rule.debate_modifiers)
-    ? rule.debate_modifiers.map((item) => `- ${item}`).join("\n")
-    : "- なし";
-
   const patchBlock = patchPayloads.length > 0
     ? patchPayloads.map(formatPatch).join("\n\n")
     : "なし";
@@ -633,14 +629,11 @@ function formatRuleLayer(rule, patchPayloads, guestCharacters) {
     ? guestCharacters.map(formatGuest).join("\n\n")
     : "なし";
 
+  const normalizedRule = normalizeRuleForPrompt(rule);
+
   return [
-    `id: ${rule.id}`,
-    `display_name: ${rule.display_name}`,
-    `scenario_type: ${rule.scenario_type ?? ""}`,
-    `energy_level: ${rule.energy_level ?? ""}`,
-    "debate_modifiers:",
-    modifiers,
-    `prompt_fragment: ${rule.prompt_fragment ?? ""}`,
+    "rule_json:",
+    JSON.stringify(normalizedRule, null, 2),
     "",
     "applied_patches:",
     patchBlock,
@@ -648,6 +641,56 @@ function formatRuleLayer(rule, patchPayloads, guestCharacters) {
     "guest_characters:",
     guestBlock
   ].join("\n");
+}
+
+function normalizeRuleForPrompt(rule) {
+  if (rule && typeof rule === "object" && rule.modifiers && rule.constraints) {
+    return rule;
+  }
+
+  const legacyWalkoutEnabled = Boolean(rule?.claude_state?.walkout_enabled);
+  const legacyWalkoutRequired = Boolean(rule?.claude_state?.walkout_required);
+  const legacyTheme = rule?.claude_state?.walkout_reason_theme;
+  const legacyModifiers = Array.isArray(rule?.debate_modifiers) ? rule.debate_modifiers : [];
+
+  return {
+    id: rule?.id ?? "",
+    display_name: rule?.display_name ?? "",
+    scenario_type: rule?.scenario_type ?? "",
+    rule_scope: "scenario_modifier_only",
+    description: "legacy rule converted for prompt compatibility",
+    modifiers: {
+      debate_heat: rule?.claude_state?.heat_mode ? "high" : "balanced",
+      character_intensity: "balanced",
+      claude_walkout: {
+        enabled: legacyWalkoutEnabled,
+        required: legacyWalkoutRequired,
+        timing: "mid_to_late",
+        reason_type: legacyTheme ? "legacy_theme" : "none",
+        reason_theme: legacyTheme ? [String(legacyTheme)] : [],
+        reason_generation_policy: "legacy rule",
+        exit_behavior_policy: "legacy rule",
+        post_exit_reaction_required: legacyWalkoutEnabled
+      },
+      post_walkout_debate: {
+        continue_with: ["GPT", "Grok", "Gemini"],
+        required_behavior: legacyModifiers
+      },
+      ending_modifier: {
+        enabled: false,
+        required_behavior: []
+      }
+    },
+    constraints: {
+      do_not_duplicate_renderer_rules: [],
+      do_not_emit: []
+    },
+    examples: {
+      reason_candidates: [],
+      reaction_candidates: []
+    },
+    prompt_fragment: rule?.prompt_fragment ?? ""
+  };
 }
 
 function formatStyle(style) {

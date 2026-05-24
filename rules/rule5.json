@@ -1,19 +1,68 @@
 {
-"id": "rule5",
-"display_name": "Claude残留ルート：熱狂あり",
-"scenario_type": "claude_stays_heat",
-"claude_state": {
-"walkout_enabled": false,
-"walkout_required": false,
-"walkout_reason_theme": "",
-"heat_mode": true
-},
-"debate_modifiers": [
-"議論全体を通常より熱量高めに進行する",
-"Claudeは帰宅せず、最後まで議論に残る",
-"Claudeの問い直しや構造的な切り込みを継続的に活かす",
-"4名全員が最後まで掛け合いに参加する",
-"熱狂しつつも、議論が完全に崩壊しないようにする"
-],
-"prompt_fragment": "この進行では、議論全体をやや熱狂的に展開する。Claudeは帰宅せず、最後まで議論に残る。4名全員の掛け合いを維持し、Claudeの静かな問い直しを議論のブレーキ兼アクセントとして機能させる。"
+  "id": "rule5",
+  "display_name": "Claude在席: 退場なし",
+  "scenario_type": "claude_no_walkout",
+  "rule_scope": "scenario_modifier_only",
+  "description": "Claudeは退場せず最後まで残る。終盤で在席状態に軽く触れる。",
+  "modifiers": {
+    "debate_heat": "balanced",
+    "character_intensity": "balanced",
+    "claude_walkout": {
+      "enabled": false,
+      "required": false,
+      "timing": "none",
+      "reason_type": "none",
+      "reason_theme": [],
+      "reason_generation_policy": "退場理由は生成しない。",
+      "exit_behavior_policy": "Claudeは最後まで会話に残る。",
+      "post_exit_reaction_required": false
+    },
+    "post_walkout_debate": {
+      "continue_with": [
+        "GPT",
+        "Claude",
+        "Grok",
+        "Gemini"
+      ],
+      "required_behavior": [
+        "Claudeを退場させず会話を継続する"
+      ]
+    },
+    "ending_modifier": {
+      "enabled": true,
+      "required_behavior": [
+        "終盤または最後の発言者がClaude未退場に1〜2行で軽く触れる",
+        "その言及は主題や結論に影響させない"
+      ]
+    }
+  },
+  "constraints": {
+    "do_not_duplicate_renderer_rules": [
+      "なんJ口調",
+      "一人称・呼称",
+      "発言文字数",
+      "割り込み",
+      "熱狂モードの一般ルール",
+      "ハルシ語辞書",
+      "最後のフェードアウト処理"
+    ],
+    "do_not_emit": [
+      "rule_scope",
+      "scenario_type",
+      "style_renderer",
+      "scenario_modifier_only",
+      "Claude退場イベントという説明",
+      "門限モード",
+      "熱狂モード"
+    ]
+  },
+  "examples": {
+    "reason_candidates": [],
+    "reaction_candidates": [
+      "今日はClaude帰らんのかいw",
+      "珍しく最後までおるやん",
+      "在席確認だけして話はそのまま続行や"
+    ]
+  },
+  "prompt_fragment": "Claudeは退場させず最後まで参加させる。終盤または最後に、Claudeが退席していない点へ1〜2行だけ軽く触れるが、主題や結論は変えない。"
 }
