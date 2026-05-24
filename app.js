@@ -212,6 +212,7 @@ function initSplash() {
 
   const splash = document.getElementById("splash-screen");
   if (!splash) {
+    document.documentElement.classList.remove("pre-splash");
     return;
   }
 
@@ -221,6 +222,7 @@ function initSplash() {
   splash.style.pointerEvents = "none";
 
   if (!shouldShowSplash()) {
+    document.documentElement.classList.remove("pre-splash");
     return;
   }
 
@@ -244,11 +246,13 @@ function showSplash() {
 
   const splash = document.getElementById("splash-screen");
   if (!splash) {
+    document.documentElement.classList.remove("pre-splash");
     return;
   }
 
   clearTimeout(splashTimer);
   clearTimeout(splashHideTimer);
+  document.documentElement.classList.add("pre-splash");
 
   splash.classList.remove("fade-out");
   splash.classList.add("is-visible");
@@ -268,6 +272,7 @@ function showSplash() {
 function hideSplash() {
   const splash = document.getElementById("splash-screen");
   if (!splash) {
+    document.documentElement.classList.remove("pre-splash");
     return;
   }
 
@@ -281,6 +286,7 @@ function hideSplash() {
     splash.style.display = "none";
     splash.style.opacity = "0";
     splash.style.pointerEvents = "none";
+    document.documentElement.classList.remove("pre-splash");
   }, 550);
 }
 

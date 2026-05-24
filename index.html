@@ -10,6 +10,24 @@
   <link rel="icon" type="image/png" href="./apple-touch-icon-AIRSB.png">
   <link rel="manifest" href="./manifest.webmanifest">
   <title>AIレスバ演出エンジン v1.3</title>
+  <script>
+    (function () {
+      try {
+        var splashMode = new URLSearchParams(window.location.search).get("splash");
+        var forceSplash = splashMode === "1" || splashMode === "debug";
+        var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent)
+          || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        var isStandalone = window.navigator.standalone === true
+          || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+
+        if (forceSplash || (isIOS && isStandalone)) {
+          document.documentElement.classList.add("pre-splash");
+        }
+      } catch (error) {
+        // noop
+      }
+    }());
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>

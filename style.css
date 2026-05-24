@@ -49,6 +49,16 @@ body {
   pointer-events: none;
 }
 
+.pre-splash #splash-screen {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pre-splash main.app {
+  visibility: hidden;
+}
+
 #splash-screen.is-visible {
   display: grid;
   opacity: 1;
