@@ -15,6 +15,7 @@ const PERSONA_IDS = ["gpt", "claude", "grok", "gemini"];
 const DEFAULT_STYLE_ID = "nanj";
 const DEFAULT_OPENING_MODE = "gpt_default";
 const DEFAULT_LENGTH_PRESET = "standard";
+const SPLASH_VISIBLE_MS = 1200;
 
 const PATCH_TYPE_LABELS = {
   character_tuning: "Character",
@@ -155,10 +156,16 @@ const state = {
 const el = {};
 
 window.addEventListener("DOMContentLoaded", () => {
-  bootstrap().catch((error) => {
+  initializeApp().catch((error) => {
     showError(error.message);
   });
 });
+
+async function initializeApp() {
+  const splashState = beginSplashIfNeeded();
+  await bootstrap();
+  await finishSplashIfNeeded(splashState);
+}
 
 async function bootstrap() {
   bindElements();
@@ -167,6 +174,67 @@ async function bootstrap() {
   renderStatus();
   renderFinalPrompt();
   await Promise.all([loadPatchIndex(), loadStyleIndex(), loadOpeningPolicy(), loadLengthPolicy()]);
+}
+
+function beginSplashIfNeeded() {
+  if (!shouldShowSplash()) {
+    return null;
+  }
+
+  const overlay = document.getElementById("splashOverlay");
+  if (!overlay) {
+    return null;
+  }
+
+  overlay.hidden = false;
+  document.body.classList.add("splash-visible");
+  return {
+    overlay,
+    startedAt: Date.now()
+  };
+}
+
+async function finishSplashIfNeeded(splashState) {
+  if (!splashState) {
+    return;
+  }
+
+  const elapsed = Date.now() - splashState.startedAt;
+  const waitMs = Math.max(0, SPLASH_VISIBLE_MS - elapsed);
+  if (waitMs > 0) {
+    await delay(waitMs);
+  }
+
+  document.body.classList.add("splash-fadeout");
+  await delay(getSplashFadeMs());
+
+  document.body.classList.remove("splash-visible");
+  document.body.classList.remove("splash-fadeout");
+  splashState.overlay.hidden = true;
+}
+
+function shouldShowSplash() {
+  const isStandalone = Boolean(
+    window.navigator.standalone === true
+    || (typeof window.matchMedia === "function"
+      && window.matchMedia("(display-mode: standalone)").matches)
+  );
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const forceSplash = new URLSearchParams(location.search).get("splash") === "1";
+
+  return (isIOS && isStandalone) || forceSplash;
+}
+
+function getSplashFadeMs() {
+  const reduced = typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reduced ? 120 : 380;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function bindElements() {

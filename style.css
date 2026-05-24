@@ -24,9 +24,54 @@ body {
   font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
 }
 
+body.splash-visible {
+  overflow: hidden;
+}
+
+body.splash-visible .app {
+  visibility: hidden;
+}
+
 .app {
   width: min(960px, 96vw);
   margin: 24px auto 40px;
+}
+
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 20% 20%, #43216a 0%, transparent 42%),
+    radial-gradient(circle at 80% 10%, #2b134a 0%, transparent 40%),
+    linear-gradient(165deg, #07070f 0%, #12051f 55%, #1a0830 100%);
+  color: #f6efff;
+  opacity: 1;
+  transition: opacity 380ms ease;
+}
+
+body.splash-fadeout .splash-overlay {
+  opacity: 0;
+}
+
+.splash-inner {
+  text-align: center;
+  padding: 24px;
+}
+
+.splash-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 5vw, 2.05rem);
+  letter-spacing: 0.04em;
+}
+
+.splash-subtitle {
+  margin: 10px 0 0;
+  font-size: 0.84rem;
+  opacity: 0.84;
+  letter-spacing: 0.03em;
 }
 
 h1 {
@@ -163,5 +208,11 @@ legend {
 
   .controls button {
     flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-overlay {
+    transition: opacity 120ms linear;
   }
 }
