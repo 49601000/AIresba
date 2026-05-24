@@ -2,7 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AIレスバ">
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon-AIRSB.png">
+  <link rel="icon" type="image/png" href="./apple-touch-icon-AIRSB.png">
+  <link rel="manifest" href="./manifest.webmanifest">
   <title>AIレスバ演出エンジン v1.3</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -25,6 +31,17 @@
       <select id="openingModeSelect"></select>
     </section>
 
+    <section class="panel">
+      <label for="lengthPresetSelect" class="label">会話分量</label>
+      <select id="lengthPresetSelect"></select>
+      <div class="length-custom">
+        <label for="lengthMinInput">min</label>
+        <input id="lengthMinInput" type="number" min="100" step="50">
+        <label for="lengthMaxInput">max</label>
+        <input id="lengthMaxInput" type="number" min="100" step="50">
+      </div>
+    </section>
+
     <section class="panel controls">
       <button id="rollBtn" type="button">Roll (1d20)</button>
       <button id="generateBtn" type="button">Generate Prompt</button>
@@ -36,6 +53,7 @@
       <p>適用ルール: <strong id="selectedRule">未選択</strong></p>
       <p>Style: <strong id="selectedStyle">nanj</strong></p>
       <p>Opening: <strong id="selectedOpeningMode">gpt_default</strong></p>
+      <p>Length: <strong id="selectedLengthPreset">standard</strong></p>
     </section>
 
     <section class="panel">

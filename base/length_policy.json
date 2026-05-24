@@ -1,0 +1,91 @@
+{
+  "id": "length_policy",
+  "default_preset": "standard",
+  "presets": {
+    "short": {
+      "display_name": "短め 1000〜1300",
+      "mode": "target_range",
+      "target_total_chars": {
+        "min": 1000,
+        "max": 1300,
+        "unit": "japanese_characters"
+      },
+      "utterance_count": {
+        "min": 10,
+        "max": 14
+      },
+      "per_utterance_chars": {
+        "default_min": 50,
+        "default_max": 140,
+        "frenzy_max": 280
+      }
+    },
+    "standard": {
+      "display_name": "標準 1400〜1600",
+      "mode": "target_range",
+      "target_total_chars": {
+        "min": 1400,
+        "max": 1600,
+        "unit": "japanese_characters"
+      },
+      "utterance_count": {
+        "min": 12,
+        "max": 18
+      },
+      "per_utterance_chars": {
+        "default_min": 60,
+        "default_max": 150,
+        "frenzy_max": 300
+      }
+    },
+    "long": {
+      "display_name": "長め 1800〜2200",
+      "mode": "target_range",
+      "target_total_chars": {
+        "min": 1800,
+        "max": 2200,
+        "unit": "japanese_characters"
+      },
+      "utterance_count": {
+        "min": 16,
+        "max": 24
+      },
+      "per_utterance_chars": {
+        "default_min": 60,
+        "default_max": 150,
+        "frenzy_max": 320
+      }
+    },
+    "custom": {
+      "display_name": "カスタム min/max",
+      "mode": "target_range",
+      "target_total_chars": {
+        "min": 1400,
+        "max": 1600,
+        "unit": "japanese_characters"
+      },
+      "utterance_count": {
+        "min": 12,
+        "max": 20
+      },
+      "per_utterance_chars": {
+        "default_min": 60,
+        "default_max": 150,
+        "frenzy_max": 300
+      },
+      "custom_allowed": true
+    }
+  },
+  "rules": [
+    "会話全体の総文字数を指定レンジに収める",
+    "短文ラリーを維持しつつ、発言回数で分量を調整する",
+    "1発言を長くして帳尻を合わせない",
+    "Claude退場後も最低4〜6発言は継続する",
+    "最後は総括せず、短くフェードアウトする"
+  ],
+  "fallback": [
+    "レンジ下限を下回りそうなら発言回数を増やす",
+    "レンジ上限を超えそうなら各発言を短くする",
+    "長文化ではなくターン数で調整する"
+  ]
+}

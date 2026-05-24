@@ -5,12 +5,16 @@ const STORAGE_KEYS = {
   selectedRuleId: "resuba_selected_rule_id",
   selectedStyle: "resuba_selected_style",
   selectedOpeningMode: "resuba_selected_opening_mode",
+  selectedLengthPreset: "resuba_selected_length_preset",
+  customLengthMin: "resuba_custom_length_min",
+  customLengthMax: "resuba_custom_length_max",
   finalPrompt: "resuba_final_prompt"
 };
 
 const PERSONA_IDS = ["gpt", "claude", "grok", "gemini"];
 const DEFAULT_STYLE_ID = "nanj";
 const DEFAULT_OPENING_MODE = "gpt_default";
+const DEFAULT_LENGTH_PRESET = "standard";
 
 const PATCH_TYPE_LABELS = {
   character_tuning: "Character",
@@ -84,12 +88,64 @@ const BUILTIN_FALLBACK_OPENING_POLICY = {
   }
 };
 
+const BUILTIN_FALLBACK_LENGTH_POLICY = {
+  id: "length_policy",
+  default_preset: DEFAULT_LENGTH_PRESET,
+  presets: {
+    short: {
+      display_name: "短め 1000〜1300",
+      mode: "target_range",
+      target_total_chars: { min: 1000, max: 1300, unit: "japanese_characters" },
+      utterance_count: { min: 10, max: 14 },
+      per_utterance_chars: { default_min: 50, default_max: 140, frenzy_max: 280 }
+    },
+    standard: {
+      display_name: "標準 1400〜1600",
+      mode: "target_range",
+      target_total_chars: { min: 1400, max: 1600, unit: "japanese_characters" },
+      utterance_count: { min: 12, max: 18 },
+      per_utterance_chars: { default_min: 60, default_max: 150, frenzy_max: 300 }
+    },
+    long: {
+      display_name: "長め 1800〜2200",
+      mode: "target_range",
+      target_total_chars: { min: 1800, max: 2200, unit: "japanese_characters" },
+      utterance_count: { min: 16, max: 24 },
+      per_utterance_chars: { default_min: 60, default_max: 150, frenzy_max: 320 }
+    },
+    custom: {
+      display_name: "カスタム min/max",
+      mode: "target_range",
+      target_total_chars: { min: 1400, max: 1600, unit: "japanese_characters" },
+      utterance_count: { min: 12, max: 20 },
+      per_utterance_chars: { default_min: 60, default_max: 150, frenzy_max: 300 },
+      custom_allowed: true
+    }
+  },
+  rules: [
+    "会話全体の総文字数を選択レンジに収める",
+    "短文ラリーを維持しつつ、発言回数で分量を調整する",
+    "1発言を長くして帳尻を合わせない",
+    "Claude退場後も最低4〜6発言は継続する",
+    "最後は総括せず、短くフェードアウトする"
+  ],
+  fallback: [
+    "下限未満になりそうなら発言回数を増やす",
+    "上限超過しそうなら各発言を短くする",
+    "長文化ではなくターン数で調整する"
+  ]
+};
+
 const state = {
   diceResult: null,
   selectedRuleId: "",
   selectedStyle: DEFAULT_STYLE_ID,
   selectedOpeningMode: DEFAULT_OPENING_MODE,
   openingPolicy: BUILTIN_FALLBACK_OPENING_POLICY,
+  selectedLengthPreset: DEFAULT_LENGTH_PRESET,
+  customLengthMin: 1400,
+  customLengthMax: 1600,
+  lengthPolicy: BUILTIN_FALLBACK_LENGTH_POLICY,
   styleIndex: [{ id: DEFAULT_STYLE_ID, display_name: "なんJレスバ", file: "nanj.json" }],
   patchIndex: [],
   enabledPatchIds: new Set(),
@@ -110,13 +166,16 @@ async function bootstrap() {
   bindEvents();
   renderStatus();
   renderFinalPrompt();
-  await Promise.all([loadPatchIndex(), loadStyleIndex(), loadOpeningPolicy()]);
+  await Promise.all([loadPatchIndex(), loadStyleIndex(), loadOpeningPolicy(), loadLengthPolicy()]);
 }
 
 function bindElements() {
   el.topicInput = document.getElementById("topicInput");
   el.styleSelect = document.getElementById("styleSelect");
   el.openingModeSelect = document.getElementById("openingModeSelect");
+  el.lengthPresetSelect = document.getElementById("lengthPresetSelect");
+  el.lengthMinInput = document.getElementById("lengthMinInput");
+  el.lengthMaxInput = document.getElementById("lengthMaxInput");
   el.rollBtn = document.getElementById("rollBtn");
   el.generateBtn = document.getElementById("generateBtn");
   el.copyBtn = document.getElementById("copyBtn");
@@ -124,6 +183,7 @@ function bindElements() {
   el.selectedRule = document.getElementById("selectedRule");
   el.selectedStyle = document.getElementById("selectedStyle");
   el.selectedOpeningMode = document.getElementById("selectedOpeningMode");
+  el.selectedLengthPreset = document.getElementById("selectedLengthPreset");
   el.patchContainer = document.getElementById("patchContainer");
   el.finalPrompt = document.getElementById("finalPrompt");
   el.errorBox = document.getElementById("errorBox");
@@ -146,6 +206,23 @@ function bindEvents() {
     localStorage.setItem(STORAGE_KEYS.selectedOpeningMode, state.selectedOpeningMode);
     renderStatus();
   });
+  el.lengthPresetSelect.addEventListener("change", () => {
+    state.selectedLengthPreset = normalizeLengthPresetId(el.lengthPresetSelect.value);
+    localStorage.setItem(STORAGE_KEYS.selectedLengthPreset, state.selectedLengthPreset);
+    syncCustomRangeWithPolicy();
+    localStorage.setItem(STORAGE_KEYS.customLengthMin, String(state.customLengthMin));
+    localStorage.setItem(STORAGE_KEYS.customLengthMax, String(state.customLengthMax));
+    syncCustomLengthInputs();
+    renderStatus();
+  });
+  el.lengthMinInput.addEventListener("input", () => {
+    state.customLengthMin = normalizeLengthBound(el.lengthMinInput.value, 1400);
+    localStorage.setItem(STORAGE_KEYS.customLengthMin, String(state.customLengthMin));
+  });
+  el.lengthMaxInput.addEventListener("input", () => {
+    state.customLengthMax = normalizeLengthBound(el.lengthMaxInput.value, 1600);
+    localStorage.setItem(STORAGE_KEYS.customLengthMax, String(state.customLengthMax));
+  });
 }
 
 function loadFromStorage() {
@@ -154,6 +231,9 @@ function loadFromStorage() {
   const storedRule = localStorage.getItem(STORAGE_KEYS.selectedRuleId);
   const storedStyle = localStorage.getItem(STORAGE_KEYS.selectedStyle);
   const storedOpeningMode = localStorage.getItem(STORAGE_KEYS.selectedOpeningMode);
+  const storedLengthPreset = localStorage.getItem(STORAGE_KEYS.selectedLengthPreset);
+  const storedLengthMin = localStorage.getItem(STORAGE_KEYS.customLengthMin);
+  const storedLengthMax = localStorage.getItem(STORAGE_KEYS.customLengthMax);
   const storedFinalPrompt = localStorage.getItem(STORAGE_KEYS.finalPrompt);
   const storedPatchIds = localStorage.getItem(STORAGE_KEYS.enabledPatchIds);
 
@@ -180,6 +260,16 @@ function loadFromStorage() {
     state.selectedOpeningMode = storedOpeningMode;
   }
 
+  if (storedLengthPreset) {
+    state.selectedLengthPreset = storedLengthPreset;
+  }
+  if (storedLengthMin) {
+    state.customLengthMin = normalizeLengthBound(storedLengthMin, 1400);
+  }
+  if (storedLengthMax) {
+    state.customLengthMax = normalizeLengthBound(storedLengthMax, 1600);
+  }
+
   if (storedFinalPrompt) {
     state.finalPrompt = storedFinalPrompt;
   }
@@ -201,6 +291,7 @@ function renderStatus() {
   el.selectedRule.textContent = state.selectedRuleId || "未選択";
   el.selectedStyle.textContent = state.selectedStyle || DEFAULT_STYLE_ID;
   el.selectedOpeningMode.textContent = state.selectedOpeningMode || DEFAULT_OPENING_MODE;
+  el.selectedLengthPreset.textContent = state.selectedLengthPreset || DEFAULT_LENGTH_PRESET;
   el.generateBtn.disabled = !state.diceResult;
 }
 
@@ -267,6 +358,25 @@ async function loadOpeningPolicy() {
   renderStatus();
 }
 
+async function loadLengthPolicy() {
+  try {
+    const rawPolicy = await fetchJson("base/length_policy.json", "length_policy");
+    state.lengthPolicy = normalizeLengthPolicy(rawPolicy);
+  } catch (_error) {
+    state.lengthPolicy = BUILTIN_FALLBACK_LENGTH_POLICY;
+  }
+
+  state.selectedLengthPreset = normalizeLengthPresetId(state.selectedLengthPreset);
+  syncCustomRangeWithPolicy();
+  localStorage.setItem(STORAGE_KEYS.selectedLengthPreset, state.selectedLengthPreset);
+  localStorage.setItem(STORAGE_KEYS.customLengthMin, String(state.customLengthMin));
+  localStorage.setItem(STORAGE_KEYS.customLengthMax, String(state.customLengthMax));
+
+  renderLengthPresetSelector();
+  syncCustomLengthInputs();
+  renderStatus();
+}
+
 function normalizeOpeningPolicy(rawPolicy) {
   if (!rawPolicy || typeof rawPolicy !== "object") {
     return BUILTIN_FALLBACK_OPENING_POLICY;
@@ -307,6 +417,64 @@ function normalizeOpeningPolicy(rawPolicy) {
   };
 }
 
+function normalizeLengthPolicy(rawPolicy) {
+  if (!rawPolicy || typeof rawPolicy !== "object") {
+    return BUILTIN_FALLBACK_LENGTH_POLICY;
+  }
+
+  const presetsSource = rawPolicy.presets && typeof rawPolicy.presets === "object"
+    ? rawPolicy.presets
+    : {};
+  const presetEntries = Object.entries(presetsSource).filter(
+    ([id, preset]) => typeof id === "string" && id.trim().length > 0 && preset && typeof preset === "object"
+  );
+  if (presetEntries.length === 0) {
+    return BUILTIN_FALLBACK_LENGTH_POLICY;
+  }
+
+  const normalizedPresets = {};
+  presetEntries.forEach(([id, preset]) => {
+    const min = normalizeLengthBound(preset?.target_total_chars?.min, 1400);
+    const max = normalizeLengthBound(preset?.target_total_chars?.max, 1600);
+    normalizedPresets[id] = {
+      display_name: typeof preset.display_name === "string" ? preset.display_name : id,
+      mode: typeof preset.mode === "string" ? preset.mode : "target_range",
+      target_total_chars: {
+        min: Math.min(min, max),
+        max: Math.max(min, max),
+        unit: "japanese_characters"
+      },
+      utterance_count: {
+        min: normalizeLengthBound(preset?.utterance_count?.min, 12),
+        max: normalizeLengthBound(preset?.utterance_count?.max, 18)
+      },
+      per_utterance_chars: {
+        default_min: normalizeLengthBound(preset?.per_utterance_chars?.default_min, 60),
+        default_max: normalizeLengthBound(preset?.per_utterance_chars?.default_max, 150),
+        frenzy_max: normalizeLengthBound(preset?.per_utterance_chars?.frenzy_max, 300)
+      },
+      custom_allowed: Boolean(preset.custom_allowed)
+    };
+  });
+
+  const defaultPresetCandidate = typeof rawPolicy.default_preset === "string"
+    ? rawPolicy.default_preset
+    : DEFAULT_LENGTH_PRESET;
+  const defaultPreset = normalizedPresets[defaultPresetCandidate]
+    ? defaultPresetCandidate
+    : normalizedPresets[DEFAULT_LENGTH_PRESET]
+      ? DEFAULT_LENGTH_PRESET
+      : Object.keys(normalizedPresets)[0];
+
+  return {
+    id: typeof rawPolicy.id === "string" ? rawPolicy.id : "length_policy",
+    default_preset: defaultPreset,
+    presets: normalizedPresets,
+    rules: sanitizeStringList(rawPolicy.rules, 16, BUILTIN_FALLBACK_LENGTH_POLICY.rules),
+    fallback: sanitizeStringList(rawPolicy.fallback, 16, BUILTIN_FALLBACK_LENGTH_POLICY.fallback)
+  };
+}
+
 function normalizeOpeningModeId(modeId) {
   const policy = state.openingPolicy || BUILTIN_FALLBACK_OPENING_POLICY;
   const availableModes = policy.available_modes || {};
@@ -314,6 +482,29 @@ function normalizeOpeningModeId(modeId) {
     return modeId;
   }
   return policy.default_mode || DEFAULT_OPENING_MODE;
+}
+
+function normalizeLengthPresetId(presetId) {
+  const policy = state.lengthPolicy || BUILTIN_FALLBACK_LENGTH_POLICY;
+  const presets = policy.presets || {};
+  if (typeof presetId === "string" && presets[presetId]) {
+    return presetId;
+  }
+  return policy.default_preset || DEFAULT_LENGTH_PRESET;
+}
+
+function getSelectedLengthPreset() {
+  const policy = state.lengthPolicy || BUILTIN_FALLBACK_LENGTH_POLICY;
+  const presetId = normalizeLengthPresetId(state.selectedLengthPreset);
+  return policy.presets[presetId];
+}
+
+function normalizeLengthBound(value, fallback) {
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
 }
 
 function renderOpeningModeSelector() {
@@ -329,6 +520,48 @@ function renderOpeningModeSelector() {
     }
     el.openingModeSelect.appendChild(option);
   });
+}
+
+function renderLengthPresetSelector() {
+  const policy = state.lengthPolicy || BUILTIN_FALLBACK_LENGTH_POLICY;
+  el.lengthPresetSelect.innerHTML = "";
+  Object.entries(policy.presets).forEach(([presetId, preset]) => {
+    const option = document.createElement("option");
+    option.value = presetId;
+    option.textContent = `${preset.display_name} (${presetId})`;
+    if (presetId === state.selectedLengthPreset) {
+      option.selected = true;
+    }
+    el.lengthPresetSelect.appendChild(option);
+  });
+}
+
+function syncCustomRangeWithPolicy() {
+  const preset = getSelectedLengthPreset();
+  if (state.selectedLengthPreset !== "custom") {
+    state.customLengthMin = preset.target_total_chars.min;
+    state.customLengthMax = preset.target_total_chars.max;
+    return;
+  }
+
+  const min = normalizeLengthBound(state.customLengthMin, preset.target_total_chars.min);
+  const max = normalizeLengthBound(state.customLengthMax, preset.target_total_chars.max);
+  state.customLengthMin = Math.min(min, max);
+  state.customLengthMax = Math.max(min, max);
+}
+
+function syncCustomLengthInputs() {
+  const isCustom = state.selectedLengthPreset === "custom";
+  const current = getSelectedLengthPreset();
+
+  el.lengthMinInput.disabled = !isCustom;
+  el.lengthMaxInput.disabled = !isCustom;
+  el.lengthMinInput.value = isCustom
+    ? String(state.customLengthMin)
+    : String(current.target_total_chars.min);
+  el.lengthMaxInput.value = isCustom
+    ? String(state.customLengthMax)
+    : String(current.target_total_chars.max);
 }
 
 function renderStyleSelector() {
@@ -482,8 +715,8 @@ async function onGeneratePrompt() {
       .map((patch) => patch.guest_character)
       .filter((guest) => guest && guest.display_name && guest.prompt_fragment);
 
-    const openingPolicyMode = getSelectedOpeningMode();
-    const speakerOrder = buildSpeakerOrder(personas, guestCharacters, openingPolicyMode).join(" -> ");
+    const openingPolicyMode = getSelectedOpeningMode(personas, guestCharacters);
+    const lengthPolicyMode = getSelectedLengthPolicyMode(rule);
 
     const assembledPrompt = assemblePrompt({
       debateEngine,
@@ -492,10 +725,10 @@ async function onGeneratePrompt() {
       rule,
       style,
       openingPolicyMode,
+      lengthPolicyMode,
       patchPayloads,
       guestCharacters,
-      topic,
-      speakerOrder
+      topic
     });
 
     state.finalPrompt = assembledPrompt;
@@ -683,30 +916,60 @@ function normalizeStyle(rawStyle, fallbackId) {
   };
 }
 
-function getSelectedOpeningMode() {
+function getSelectedOpeningMode(personas, guestCharacters) {
   const policy = state.openingPolicy || BUILTIN_FALLBACK_OPENING_POLICY;
   const modeId = normalizeOpeningModeId(state.selectedOpeningMode);
   const selected = policy.available_modes[modeId];
+  const candidates = [
+    ...personas.map((persona) => persona.display_name),
+    ...guestCharacters.map((guest) => guest.display_name)
+  ];
+  const sampledStarter = modeId === "fully_random"
+    ? shuffle(candidates)[0]
+    : "GPT";
+
   return {
     id: modeId,
     display_name: selected.display_name,
     starter: selected.starter,
-    rules: Array.isArray(selected.rules) ? selected.rules : []
+    rules: Array.isArray(selected.rules) ? selected.rules : [],
+    sampled_starter: sampledStarter
   };
 }
 
-function buildSpeakerOrder(personas, guestCharacters, openingMode) {
-  const personaNames = personas.map((persona) => persona.display_name);
-  const guestNames = guestCharacters.map((guest) => guest.display_name);
-  const allNames = [...personaNames, ...guestNames];
+function getSelectedLengthPolicyMode(rule) {
+  const policy = state.lengthPolicy || BUILTIN_FALLBACK_LENGTH_POLICY;
+  const presetId = normalizeLengthPresetId(state.selectedLengthPreset);
+  const preset = policy.presets[presetId];
 
-  if (openingMode.starter !== "gpt") {
-    return shuffle(allNames);
+  const totalChars = {
+    ...preset.target_total_chars
+  };
+  if (presetId === "custom") {
+    const min = normalizeLengthBound(state.customLengthMin, totalChars.min);
+    const max = normalizeLengthBound(state.customLengthMax, totalChars.max);
+    totalChars.min = Math.min(min, max);
+    totalChars.max = Math.max(min, max);
   }
 
-  const starter = personaNames.find((name) => name === "GPT") || "GPT";
-  const rest = allNames.filter((name) => name !== starter);
-  return [starter, ...shuffle(rest)];
+  const walkoutEnabled = Boolean(
+    rule?.modifiers?.claude_walkout?.enabled ?? rule?.claude_state?.walkout_enabled
+  );
+  const ruleSpecific = walkoutEnabled
+    ? ["Claude退場イベントがある場合、退場後も最低4〜6発言は継続する"]
+    : [];
+
+  return {
+    id: policy.id,
+    preset_id: presetId,
+    preset_display_name: preset.display_name,
+    mode: preset.mode,
+    target_total_chars: totalChars,
+    utterance_count: preset.utterance_count,
+    per_utterance_chars: preset.per_utterance_chars,
+    rules: [...policy.rules, ...ruleSpecific],
+    fallback: [...policy.fallback]
+  };
 }
 
 function assemblePrompt(payload) {
@@ -717,10 +980,10 @@ function assemblePrompt(payload) {
     rule,
     style,
     openingPolicyMode,
+    lengthPolicyMode,
     patchPayloads,
     guestCharacters,
-    topic,
-    speakerOrder
+    topic
   } = payload;
 
   const brainLayerBlock = personas.map(formatBrainLayer).join("\n\n");
@@ -742,13 +1005,22 @@ function assemblePrompt(payload) {
     "# Layer 5: Opening Policy",
     formatOpeningPolicyMode(openingPolicyMode),
     "",
-    "# Layer 6: Topic",
+    "# Layer 6: Length Policy",
+    formatLengthPolicyMode(lengthPolicyMode),
+    "",
+    "# Layer 7: Topic",
     `議題: ${topic}`,
     `ダイスロール結果: ${state.diceResult}`,
     `適用ルール: ${state.selectedRuleId}`,
     `選択スタイル: ${style.id}`,
     `開幕モード: ${openingPolicyMode.id}`,
-    `今回の発言順(固定ではない): ${speakerOrder}`,
+    `最初の発言者: ${openingPolicyMode.id === "gpt_default" ? "GPT" : "完全ランダム"}`,
+    ...(openingPolicyMode.id === "fully_random"
+      ? [`開始話者サンプル: ${openingPolicyMode.sampled_starter}`]
+      : []),
+    "以降の発言順: 非固定",
+    `分量プリセット: ${lengthPolicyMode.preset_id}`,
+    `総文字数目安: ${lengthPolicyMode.target_total_chars.min}〜${lengthPolicyMode.target_total_chars.max}字`,
     "",
     "# Mandatory Composition Instructions",
     "- まず各キャラクターは brain_layer に従って「何を主張するか」を決める",
@@ -760,8 +1032,9 @@ function assemblePrompt(payload) {
     "- style_renderer は語尾だけでなく、会話テンポ、割り込み、長文例外、特殊イベント、用語辞書、終幕処理まで制御する",
     "- style_renderer / rule の examples / candidates は候補扱いとし、並列連結でそのまま出力しない",
     ...formatOpeningPolicyInstructions(openingPolicyMode),
+    ...formatLengthPolicyInstructions(lengthPolicyMode),
     "",
-    "# Layer 7: Output Format",
+    "# Layer 8: Output Format",
     outputFormat.trim()
   ].join("\n");
 }
@@ -877,6 +1150,32 @@ function formatOpeningPolicyInstructions(mode) {
 
   return [
     "- opening_policy が fully_random の場合、最初の発言者は完全ランダム"
+  ];
+}
+
+function formatLengthPolicyMode(mode) {
+  return [
+    `id: ${mode.id}`,
+    `preset_id: ${mode.preset_id}`,
+    `preset_display_name: ${mode.preset_display_name}`,
+    "length_policy:",
+    JSON.stringify({
+      mode: mode.mode,
+      target_total_chars: mode.target_total_chars,
+      utterance_count: mode.utterance_count,
+      per_utterance_chars: mode.per_utterance_chars,
+      rules: mode.rules,
+      fallback: mode.fallback
+    }, null, 2)
+  ].join("\n");
+}
+
+function formatLengthPolicyInstructions(mode) {
+  return [
+    `- 会話全体の総文字数を ${mode.target_total_chars.min}〜${mode.target_total_chars.max} 字程度に収める`,
+    "- 文字数調整は1発言の長文化ではなく、発言回数で行う",
+    "- 短文ラリーのテンポを維持する",
+    "- 最後は短くフェードアウトし、総括で閉じない"
   ];
 }
 
