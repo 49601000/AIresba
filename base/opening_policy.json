@@ -1,0 +1,26 @@
+{
+  "id": "opening_policy",
+  "default_mode": "gpt_default",
+  "available_modes": {
+    "gpt_default": {
+      "display_name": "GPT正論スタート",
+      "starter": "gpt",
+      "rules": [
+        "最初の発言者はGPTに固定する",
+        "GPTは議題に対して正論または合理的な初期主張を短く置く",
+        "議論を完結させない",
+        "Grok / Claude / Gemini が噛みつける余白を残す",
+        "教師っぽい長文説明にしすぎない",
+        "1〜3文程度で導入する"
+      ]
+    },
+    "fully_random": {
+      "display_name": "完全ランダム",
+      "starter": "random",
+      "rules": [
+        "最初の発言者を完全ランダムにする",
+        "既存のランダム開始挙動を維持する"
+      ]
+    }
+  }
+}

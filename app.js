@@ -4,11 +4,13 @@ const STORAGE_KEYS = {
   diceResult: "resuba_dice_result",
   selectedRuleId: "resuba_selected_rule_id",
   selectedStyle: "resuba_selected_style",
+  selectedOpeningMode: "resuba_selected_opening_mode",
   finalPrompt: "resuba_final_prompt"
 };
 
 const PERSONA_IDS = ["gpt", "claude", "grok", "gemini"];
 const DEFAULT_STYLE_ID = "nanj";
+const DEFAULT_OPENING_MODE = "gpt_default";
 
 const PATCH_TYPE_LABELS = {
   character_tuning: "Character",
@@ -55,10 +57,39 @@ const BUILTIN_FALLBACK_STYLE = {
   }
 };
 
+const BUILTIN_FALLBACK_OPENING_POLICY = {
+  id: "opening_policy",
+  default_mode: DEFAULT_OPENING_MODE,
+  available_modes: {
+    gpt_default: {
+      display_name: "GPT正論スタート",
+      starter: "gpt",
+      rules: [
+        "最初の発言者はGPTに固定する",
+        "GPTは議題に対して正論または合理的な初期主張を短く置く",
+        "議論を完結させない",
+        "Grok / Claude / Gemini が噛みつける余白を残す",
+        "教師っぽい長文説明にしすぎない",
+        "1〜3文程度で導入する"
+      ]
+    },
+    fully_random: {
+      display_name: "完全ランダム",
+      starter: "random",
+      rules: [
+        "最初の発言者を完全ランダムにする",
+        "既存のランダム開始挙動を維持する"
+      ]
+    }
+  }
+};
+
 const state = {
   diceResult: null,
   selectedRuleId: "",
   selectedStyle: DEFAULT_STYLE_ID,
+  selectedOpeningMode: DEFAULT_OPENING_MODE,
+  openingPolicy: BUILTIN_FALLBACK_OPENING_POLICY,
   styleIndex: [{ id: DEFAULT_STYLE_ID, display_name: "なんJレスバ", file: "nanj.json" }],
   patchIndex: [],
   enabledPatchIds: new Set(),
@@ -79,18 +110,20 @@ async function bootstrap() {
   bindEvents();
   renderStatus();
   renderFinalPrompt();
-  await Promise.all([loadPatchIndex(), loadStyleIndex()]);
+  await Promise.all([loadPatchIndex(), loadStyleIndex(), loadOpeningPolicy()]);
 }
 
 function bindElements() {
   el.topicInput = document.getElementById("topicInput");
   el.styleSelect = document.getElementById("styleSelect");
+  el.openingModeSelect = document.getElementById("openingModeSelect");
   el.rollBtn = document.getElementById("rollBtn");
   el.generateBtn = document.getElementById("generateBtn");
   el.copyBtn = document.getElementById("copyBtn");
   el.diceResult = document.getElementById("diceResult");
   el.selectedRule = document.getElementById("selectedRule");
   el.selectedStyle = document.getElementById("selectedStyle");
+  el.selectedOpeningMode = document.getElementById("selectedOpeningMode");
   el.patchContainer = document.getElementById("patchContainer");
   el.finalPrompt = document.getElementById("finalPrompt");
   el.errorBox = document.getElementById("errorBox");
@@ -108,6 +141,11 @@ function bindEvents() {
     localStorage.setItem(STORAGE_KEYS.selectedStyle, state.selectedStyle);
     renderStatus();
   });
+  el.openingModeSelect.addEventListener("change", () => {
+    state.selectedOpeningMode = normalizeOpeningModeId(el.openingModeSelect.value);
+    localStorage.setItem(STORAGE_KEYS.selectedOpeningMode, state.selectedOpeningMode);
+    renderStatus();
+  });
 }
 
 function loadFromStorage() {
@@ -115,6 +153,7 @@ function loadFromStorage() {
   const storedDice = localStorage.getItem(STORAGE_KEYS.diceResult);
   const storedRule = localStorage.getItem(STORAGE_KEYS.selectedRuleId);
   const storedStyle = localStorage.getItem(STORAGE_KEYS.selectedStyle);
+  const storedOpeningMode = localStorage.getItem(STORAGE_KEYS.selectedOpeningMode);
   const storedFinalPrompt = localStorage.getItem(STORAGE_KEYS.finalPrompt);
   const storedPatchIds = localStorage.getItem(STORAGE_KEYS.enabledPatchIds);
 
@@ -137,6 +176,10 @@ function loadFromStorage() {
     state.selectedStyle = storedStyle;
   }
 
+  if (storedOpeningMode) {
+    state.selectedOpeningMode = storedOpeningMode;
+  }
+
   if (storedFinalPrompt) {
     state.finalPrompt = storedFinalPrompt;
   }
@@ -157,6 +200,7 @@ function renderStatus() {
   el.diceResult.textContent = state.diceResult ?? "未ロール";
   el.selectedRule.textContent = state.selectedRuleId || "未選択";
   el.selectedStyle.textContent = state.selectedStyle || DEFAULT_STYLE_ID;
+  el.selectedOpeningMode.textContent = state.selectedOpeningMode || DEFAULT_OPENING_MODE;
   el.generateBtn.disabled = !state.diceResult;
 }
 
@@ -207,6 +251,84 @@ async function loadStyleIndex() {
 
   renderStyleSelector();
   renderStatus();
+}
+
+async function loadOpeningPolicy() {
+  try {
+    const rawPolicy = await fetchJson("base/opening_policy.json", "opening_policy");
+    state.openingPolicy = normalizeOpeningPolicy(rawPolicy);
+  } catch (_error) {
+    state.openingPolicy = BUILTIN_FALLBACK_OPENING_POLICY;
+  }
+
+  state.selectedOpeningMode = normalizeOpeningModeId(state.selectedOpeningMode);
+  localStorage.setItem(STORAGE_KEYS.selectedOpeningMode, state.selectedOpeningMode);
+  renderOpeningModeSelector();
+  renderStatus();
+}
+
+function normalizeOpeningPolicy(rawPolicy) {
+  if (!rawPolicy || typeof rawPolicy !== "object") {
+    return BUILTIN_FALLBACK_OPENING_POLICY;
+  }
+
+  const availableModes = rawPolicy.available_modes && typeof rawPolicy.available_modes === "object"
+    ? rawPolicy.available_modes
+    : {};
+  const modeEntries = Object.entries(availableModes).filter(
+    ([id, mode]) => typeof id === "string" && id.trim().length > 0 && mode && typeof mode === "object"
+  );
+  if (modeEntries.length === 0) {
+    return BUILTIN_FALLBACK_OPENING_POLICY;
+  }
+
+  const normalizedModes = {};
+  modeEntries.forEach(([id, mode]) => {
+    normalizedModes[id] = {
+      display_name: typeof mode.display_name === "string" ? mode.display_name : id,
+      starter: typeof mode.starter === "string" ? mode.starter : "random",
+      rules: sanitizeStringList(mode.rules, 12, [])
+    };
+  });
+
+  const defaultModeCandidate = typeof rawPolicy.default_mode === "string"
+    ? rawPolicy.default_mode
+    : DEFAULT_OPENING_MODE;
+  const defaultMode = normalizedModes[defaultModeCandidate]
+    ? defaultModeCandidate
+    : normalizedModes[DEFAULT_OPENING_MODE]
+      ? DEFAULT_OPENING_MODE
+      : Object.keys(normalizedModes)[0];
+
+  return {
+    id: typeof rawPolicy.id === "string" ? rawPolicy.id : "opening_policy",
+    default_mode: defaultMode,
+    available_modes: normalizedModes
+  };
+}
+
+function normalizeOpeningModeId(modeId) {
+  const policy = state.openingPolicy || BUILTIN_FALLBACK_OPENING_POLICY;
+  const availableModes = policy.available_modes || {};
+  if (typeof modeId === "string" && availableModes[modeId]) {
+    return modeId;
+  }
+  return policy.default_mode || DEFAULT_OPENING_MODE;
+}
+
+function renderOpeningModeSelector() {
+  const policy = state.openingPolicy || BUILTIN_FALLBACK_OPENING_POLICY;
+  el.openingModeSelect.innerHTML = "";
+
+  Object.entries(policy.available_modes).forEach(([modeId, mode]) => {
+    const option = document.createElement("option");
+    option.value = modeId;
+    option.textContent = `${mode.display_name} (${modeId})`;
+    if (modeId === state.selectedOpeningMode) {
+      option.selected = true;
+    }
+    el.openingModeSelect.appendChild(option);
+  });
 }
 
 function renderStyleSelector() {
@@ -360,10 +482,8 @@ async function onGeneratePrompt() {
       .map((patch) => patch.guest_character)
       .filter((guest) => guest && guest.display_name && guest.prompt_fragment);
 
-    const speakerOrder = shuffle([
-      ...personas.map((persona) => persona.display_name),
-      ...guestCharacters.map((guest) => guest.display_name)
-    ]).join(" -> ");
+    const openingPolicyMode = getSelectedOpeningMode();
+    const speakerOrder = buildSpeakerOrder(personas, guestCharacters, openingPolicyMode).join(" -> ");
 
     const assembledPrompt = assemblePrompt({
       debateEngine,
@@ -371,6 +491,7 @@ async function onGeneratePrompt() {
       personas,
       rule,
       style,
+      openingPolicyMode,
       patchPayloads,
       guestCharacters,
       topic,
@@ -562,6 +683,32 @@ function normalizeStyle(rawStyle, fallbackId) {
   };
 }
 
+function getSelectedOpeningMode() {
+  const policy = state.openingPolicy || BUILTIN_FALLBACK_OPENING_POLICY;
+  const modeId = normalizeOpeningModeId(state.selectedOpeningMode);
+  const selected = policy.available_modes[modeId];
+  return {
+    id: modeId,
+    display_name: selected.display_name,
+    starter: selected.starter,
+    rules: Array.isArray(selected.rules) ? selected.rules : []
+  };
+}
+
+function buildSpeakerOrder(personas, guestCharacters, openingMode) {
+  const personaNames = personas.map((persona) => persona.display_name);
+  const guestNames = guestCharacters.map((guest) => guest.display_name);
+  const allNames = [...personaNames, ...guestNames];
+
+  if (openingMode.starter !== "gpt") {
+    return shuffle(allNames);
+  }
+
+  const starter = personaNames.find((name) => name === "GPT") || "GPT";
+  const rest = allNames.filter((name) => name !== starter);
+  return [starter, ...shuffle(rest)];
+}
+
 function assemblePrompt(payload) {
   const {
     debateEngine,
@@ -569,6 +716,7 @@ function assemblePrompt(payload) {
     personas,
     rule,
     style,
+    openingPolicyMode,
     patchPayloads,
     guestCharacters,
     topic,
@@ -591,11 +739,15 @@ function assemblePrompt(payload) {
     "# Layer 4: Style Renderer",
     formatStyle(style),
     "",
-    "# Layer 5: Topic",
+    "# Layer 5: Opening Policy",
+    formatOpeningPolicyMode(openingPolicyMode),
+    "",
+    "# Layer 6: Topic",
     `議題: ${topic}`,
     `ダイスロール結果: ${state.diceResult}`,
     `適用ルール: ${state.selectedRuleId}`,
     `選択スタイル: ${style.id}`,
+    `開幕モード: ${openingPolicyMode.id}`,
     `今回の発言順(固定ではない): ${speakerOrder}`,
     "",
     "# Mandatory Composition Instructions",
@@ -606,8 +758,10 @@ function assemblePrompt(payload) {
     "- 各発言は、直前または直近の発言に反応する",
     "- 独立した作文モノローグは禁止",
     "- style_renderer は語尾だけでなく、会話テンポ、割り込み、長文例外、特殊イベント、用語辞書、終幕処理まで制御する",
+    "- style_renderer / rule の examples / candidates は候補扱いとし、並列連結でそのまま出力しない",
+    ...formatOpeningPolicyInstructions(openingPolicyMode),
     "",
-    "# Layer 6: Output Format",
+    "# Layer 7: Output Format",
     outputFormat.trim()
   ].join("\n");
 }
@@ -700,6 +854,30 @@ function formatStyle(style) {
     "style_renderer:",
     JSON.stringify(style.style_renderer, null, 2)
   ].join("\n");
+}
+
+function formatOpeningPolicyMode(mode) {
+  return [
+    `id: ${mode.id}`,
+    `display_name: ${mode.display_name}`,
+    `starter: ${mode.starter}`,
+    "rules:",
+    ...(mode.rules.length > 0 ? mode.rules.map((rule) => `- ${rule}`) : ["- なし"])
+  ].join("\n");
+}
+
+function formatOpeningPolicyInstructions(mode) {
+  if (mode.id === "gpt_default") {
+    return [
+      "- opening_policy が gpt_default の場合、最初の発言者は必ず GPT",
+      "- GPT は議題に対して正論・合理性寄りの短い初期主張を置く",
+      "- ただし議論を完結させず、他キャラが反論・茶化し・前提刺し・脱線しやすい余白を残す"
+    ];
+  }
+
+  return [
+    "- opening_policy が fully_random の場合、最初の発言者は完全ランダム"
+  ];
 }
 
 function formatPatch(patch) {
