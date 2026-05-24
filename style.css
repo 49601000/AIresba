@@ -24,36 +24,41 @@ body {
   font-family: "BIZ UDPGothic", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
 }
 
-body.splash-visible {
-  overflow: hidden;
-}
-
-body.splash-visible .app {
-  visibility: hidden;
-}
-
 .app {
   width: min(960px, 96vw);
   margin: 24px auto 40px;
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+.app-header {
+  padding-top: max(12px, env(safe-area-inset-top));
 }
 
 .splash-overlay {
+  display: none;
   position: fixed;
   inset: 0;
   z-index: 9999;
-  display: grid;
   place-items: center;
   background:
     radial-gradient(circle at 20% 20%, #43216a 0%, transparent 42%),
     radial-gradient(circle at 80% 10%, #2b134a 0%, transparent 40%),
     linear-gradient(165deg, #07070f 0%, #12051f 55%, #1a0830 100%);
   color: #f6efff;
-  opacity: 1;
-  transition: opacity 380ms ease;
+  opacity: 0;
+  pointer-events: none;
 }
 
-body.splash-fadeout .splash-overlay {
+#splash-screen.is-visible {
+  display: grid;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#splash-screen.fade-out {
   opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
 }
 
 .splash-inner {
@@ -74,7 +79,7 @@ body.splash-fadeout .splash-overlay {
   letter-spacing: 0.03em;
 }
 
-h1 {
+.app-title {
   margin: 0 0 14px;
   font-size: clamp(1.4rem, 2.6vw, 2rem);
 }
@@ -152,6 +157,10 @@ button {
   cursor: pointer;
 }
 
+.gemini-open-btn {
+  min-height: 44px;
+}
+
 button:hover {
   background: var(--accent-2);
 }
@@ -159,6 +168,16 @@ button:hover {
 button:disabled {
   background: #94a9c7;
   cursor: not-allowed;
+}
+
+button.is-success {
+  filter: brightness(1.12);
+  transform: translateY(1px);
+}
+
+button.is-error {
+  filter: brightness(0.9);
+  outline: 2px solid rgba(255, 80, 80, 0.8);
 }
 
 .status p {
@@ -200,6 +219,14 @@ legend {
   white-space: pre-wrap;
 }
 
+.ios-standalone .app-header {
+  padding-top: calc(env(safe-area-inset-top) + 20px);
+}
+
+.ios-standalone main.app {
+  padding-top: 12px;
+}
+
 @media (max-width: 640px) {
   .app {
     width: 94vw;
@@ -212,7 +239,14 @@ legend {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash-overlay {
+  #splash-screen.fade-out {
     transition: opacity 120ms linear;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-title {
+    font-size: 26px;
+    line-height: 1.2;
   }
 }

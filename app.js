@@ -15,7 +15,12 @@ const PERSONA_IDS = ["gpt", "claude", "grok", "gemini"];
 const DEFAULT_STYLE_ID = "nanj";
 const DEFAULT_OPENING_MODE = "gpt_default";
 const DEFAULT_LENGTH_PRESET = "standard";
-const SPLASH_VISIBLE_MS = 1200;
+const SPLASH_VISIBLE_MS = 1800;
+let appHasInitialized = false;
+let splashHasInitialized = false;
+let splashTimer = null;
+let splashHideTimer = null;
+let splashSafetyTimer = null;
 
 const PATCH_TYPE_LABELS = {
   character_tuning: "Character",
@@ -102,10 +107,11 @@ const BUILTIN_FALLBACK_LENGTH_POLICY = {
     },
     standard: {
       display_name: "標準 1400〜1600",
+      priority: "total_chars_first",
       mode: "target_range",
-      target_total_chars: { min: 1400, max: 1600, unit: "japanese_characters" },
-      utterance_count: { min: 12, max: 18 },
-      per_utterance_chars: { default_min: 60, default_max: 150, frenzy_max: 300 }
+      target_total_chars: { min: 1400, max: 1600, unit: "japanese_characters", hardness: "strong" },
+      utterance_count: { min: 10, max: 13 },
+      per_utterance_chars: { default_min: 60, default_target: 90, default_max: 120, frenzy_max: 220 }
     },
     long: {
       display_name: "長め 1800〜2200",
@@ -124,8 +130,11 @@ const BUILTIN_FALLBACK_LENGTH_POLICY = {
     }
   },
   rules: [
-    "会話全体の総文字数を選択レンジに収める",
+    "総文字数レンジを最優先する",
+    "文字数 > ターン数 > 各発言の濃さ の優先順位で調整する",
     "短文ラリーを維持しつつ、発言回数で分量を調整する",
+    "standardでは1発言を平均90字前後に保つ",
+    "standardでは120字超は必要時のみとし、150字は例外上限として連発しない",
     "1発言を長くして帳尻を合わせない",
     "Claude退場後も最低4〜6発言は継続する",
     "最後は総括せず、短くフェードアウトする"
@@ -155,20 +164,31 @@ const state = {
 
 const el = {};
 
-window.addEventListener("DOMContentLoaded", () => {
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", runAppOnce, { once: true });
+} else {
+  runAppOnce();
+}
+
+function runAppOnce() {
+  if (appHasInitialized) {
+    return;
+  }
+  appHasInitialized = true;
   initializeApp().catch((error) => {
     showError(error.message);
   });
-});
+}
 
 async function initializeApp() {
-  const splashState = beginSplashIfNeeded();
+  applyIOSStandaloneClass();
+  initSplash();
   await bootstrap();
-  await finishSplashIfNeeded(splashState);
 }
 
 async function bootstrap() {
   bindElements();
+  setupIOSOnlyFeatures();
   loadFromStorage();
   bindEvents();
   renderStatus();
@@ -176,65 +196,126 @@ async function bootstrap() {
   await Promise.all([loadPatchIndex(), loadStyleIndex(), loadOpeningPolicy(), loadLengthPolicy()]);
 }
 
-function beginSplashIfNeeded() {
-  if (!shouldShowSplash()) {
-    return null;
+function setupIOSOnlyFeatures() {
+  if (!el.geminiOpenBtn) {
+    return;
   }
-
-  const overlay = document.getElementById("splashOverlay");
-  if (!overlay) {
-    return null;
-  }
-
-  overlay.hidden = false;
-  document.body.classList.add("splash-visible");
-  return {
-    overlay,
-    startedAt: Date.now()
-  };
+  el.geminiOpenBtn.hidden = !isIOSDevice();
 }
 
-async function finishSplashIfNeeded(splashState) {
-  if (!splashState) {
+function initSplash() {
+  console.log("[splash] init", { splashHasInitialized });
+  if (splashHasInitialized) {
+    return;
+  }
+  splashHasInitialized = true;
+
+  const splash = document.getElementById("splash-screen");
+  if (!splash) {
     return;
   }
 
-  const elapsed = Date.now() - splashState.startedAt;
-  const waitMs = Math.max(0, SPLASH_VISIBLE_MS - elapsed);
-  if (waitMs > 0) {
-    await delay(waitMs);
+  splash.classList.remove("is-visible", "fade-out");
+  splash.style.display = "none";
+  splash.style.opacity = "0";
+  splash.style.pointerEvents = "none";
+
+  if (!shouldShowSplash()) {
+    return;
   }
 
-  document.body.classList.add("splash-fadeout");
-  await delay(getSplashFadeMs());
+  showSplash();
 
-  document.body.classList.remove("splash-visible");
-  document.body.classList.remove("splash-fadeout");
-  splashState.overlay.hidden = true;
+  clearTimeout(splashSafetyTimer);
+  splashSafetyTimer = setTimeout(() => {
+    const activeSplash = document.getElementById("splash-screen");
+    if (
+      activeSplash
+      && activeSplash.classList.contains("is-visible")
+      && getSplashMode() !== "debug"
+    ) {
+      hideSplash();
+    }
+  }, 3000);
+}
+
+function showSplash() {
+  console.log("[splash] show");
+
+  const splash = document.getElementById("splash-screen");
+  if (!splash) {
+    return;
+  }
+
+  clearTimeout(splashTimer);
+  clearTimeout(splashHideTimer);
+
+  splash.classList.remove("fade-out");
+  splash.classList.add("is-visible");
+  splash.style.display = "flex";
+  splash.style.opacity = "1";
+  splash.style.pointerEvents = "auto";
+
+  if (getSplashMode() === "debug") {
+    return;
+  }
+
+  splashTimer = setTimeout(() => {
+    hideSplash();
+  }, SPLASH_VISIBLE_MS);
+}
+
+function hideSplash() {
+  const splash = document.getElementById("splash-screen");
+  if (!splash) {
+    return;
+  }
+
+  clearTimeout(splashHideTimer);
+  splash.classList.add("fade-out");
+  splash.style.opacity = "0";
+  splash.style.pointerEvents = "none";
+
+  splashHideTimer = setTimeout(() => {
+    splash.classList.remove("is-visible", "fade-out");
+    splash.style.display = "none";
+    splash.style.opacity = "0";
+    splash.style.pointerEvents = "none";
+  }, 550);
 }
 
 function shouldShowSplash() {
-  const isStandalone = Boolean(
-    window.navigator.standalone === true
-    || (typeof window.matchMedia === "function"
-      && window.matchMedia("(display-mode: standalone)").matches)
-  );
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const forceSplash = new URLSearchParams(location.search).get("splash") === "1";
+  const splashMode = getSplashMode();
+  if (splashMode === "1" || splashMode === "debug") {
+    return true;
+  }
 
-  return (isIOS && isStandalone) || forceSplash;
+  return isIOSDevice() && isStandaloneMode();
 }
 
-function getSplashFadeMs() {
-  const reduced = typeof window.matchMedia === "function"
-    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  return reduced ? 120 : 380;
+function applyIOSStandaloneClass() {
+  if (isIOSDevice() && isStandaloneMode()) {
+    document.documentElement.classList.add("ios-standalone");
+  } else {
+    document.documentElement.classList.remove("ios-standalone");
+  }
 }
 
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+function isStandaloneMode() {
+  return window.navigator.standalone === true
+    || (
+      typeof window.matchMedia === "function"
+      && window.matchMedia("(display-mode: standalone)").matches
+    );
+}
+
+function isIOSDevice() {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function getSplashMode() {
+  return new URLSearchParams(window.location.search).get("splash");
 }
 
 function bindElements() {
@@ -247,6 +328,7 @@ function bindElements() {
   el.rollBtn = document.getElementById("rollBtn");
   el.generateBtn = document.getElementById("generateBtn");
   el.copyBtn = document.getElementById("copyBtn");
+  el.geminiOpenBtn = document.getElementById("geminiOpenBtn");
   el.diceResult = document.getElementById("diceResult");
   el.selectedRule = document.getElementById("selectedRule");
   el.selectedStyle = document.getElementById("selectedStyle");
@@ -261,6 +343,7 @@ function bindEvents() {
   el.rollBtn.addEventListener("click", onRollDice);
   el.generateBtn.addEventListener("click", onGeneratePrompt);
   el.copyBtn.addEventListener("click", onCopyPrompt);
+  el.geminiOpenBtn.addEventListener("click", onOpenGemini);
   el.topicInput.addEventListener("input", () => {
     localStorage.setItem(STORAGE_KEYS.topic, el.topicInput.value);
   });
@@ -361,6 +444,9 @@ function renderStatus() {
   el.selectedOpeningMode.textContent = state.selectedOpeningMode || DEFAULT_OPENING_MODE;
   el.selectedLengthPreset.textContent = state.selectedLengthPreset || DEFAULT_LENGTH_PRESET;
   el.generateBtn.disabled = !state.diceResult;
+  if (el.geminiOpenBtn && !el.geminiOpenBtn.hidden) {
+    el.geminiOpenBtn.disabled = !state.finalPrompt.trim();
+  }
 }
 
 function renderFinalPrompt() {
@@ -506,11 +592,17 @@ function normalizeLengthPolicy(rawPolicy) {
     const max = normalizeLengthBound(preset?.target_total_chars?.max, 1600);
     normalizedPresets[id] = {
       display_name: typeof preset.display_name === "string" ? preset.display_name : id,
+      priority: typeof preset.priority === "string" ? preset.priority : "balanced",
       mode: typeof preset.mode === "string" ? preset.mode : "target_range",
       target_total_chars: {
         min: Math.min(min, max),
         max: Math.max(min, max),
-        unit: "japanese_characters"
+        unit: typeof preset?.target_total_chars?.unit === "string"
+          ? preset.target_total_chars.unit
+          : "japanese_characters",
+        hardness: typeof preset?.target_total_chars?.hardness === "string"
+          ? preset.target_total_chars.hardness
+          : "balanced"
       },
       utterance_count: {
         min: normalizeLengthBound(preset?.utterance_count?.min, 12),
@@ -518,6 +610,10 @@ function normalizeLengthPolicy(rawPolicy) {
       },
       per_utterance_chars: {
         default_min: normalizeLengthBound(preset?.per_utterance_chars?.default_min, 60),
+        default_target: normalizeLengthBound(
+          preset?.per_utterance_chars?.default_target,
+          90
+        ),
         default_max: normalizeLengthBound(preset?.per_utterance_chars?.default_max, 150),
         frenzy_max: normalizeLengthBound(preset?.per_utterance_chars?.frenzy_max, 300)
       },
@@ -723,6 +819,7 @@ function onRollDice() {
   localStorage.setItem(STORAGE_KEYS.selectedRuleId, selectedRuleId);
 
   renderStatus();
+  flashButtonStatus(el.rollBtn, "ロールOK");
 }
 
 function mapDiceToRuleId(dice) {
@@ -747,11 +844,13 @@ async function onGeneratePrompt() {
 
   if (!topic) {
     showError("議題を入力してください。");
+    flashButtonStatus(el.generateBtn, "生成失敗", "error");
     return;
   }
 
   if (!state.diceResult || !state.selectedRuleId) {
     showError("未Roll状態では Generate できません。先に Roll してください。");
+    flashButtonStatus(el.generateBtn, "生成失敗", "error");
     return;
   }
 
@@ -802,8 +901,10 @@ async function onGeneratePrompt() {
     state.finalPrompt = assembledPrompt;
     localStorage.setItem(STORAGE_KEYS.finalPrompt, assembledPrompt);
     el.finalPrompt.value = assembledPrompt;
+    flashButtonStatus(el.generateBtn, "生成OK");
   } catch (error) {
     showError(error.message);
+    flashButtonStatus(el.generateBtn, "生成失敗", "error");
   }
 }
 
@@ -1031,6 +1132,7 @@ function getSelectedLengthPolicyMode(rule) {
     id: policy.id,
     preset_id: presetId,
     preset_display_name: preset.display_name,
+    priority: preset.priority ?? "balanced",
     mode: preset.mode,
     target_total_chars: totalChars,
     utterance_count: preset.utterance_count,
@@ -1226,9 +1328,11 @@ function formatLengthPolicyMode(mode) {
     `id: ${mode.id}`,
     `preset_id: ${mode.preset_id}`,
     `preset_display_name: ${mode.preset_display_name}`,
+    `priority: ${mode.priority}`,
     "length_policy:",
     JSON.stringify({
       mode: mode.mode,
+      priority: mode.priority,
       target_total_chars: mode.target_total_chars,
       utterance_count: mode.utterance_count,
       per_utterance_chars: mode.per_utterance_chars,
@@ -1239,12 +1343,23 @@ function formatLengthPolicyMode(mode) {
 }
 
 function formatLengthPolicyInstructions(mode) {
-  return [
+  const base = [
     `- 会話全体の総文字数を ${mode.target_total_chars.min}〜${mode.target_total_chars.max} 字程度に収める`,
+    "- Length Policy は tempo_rules より優先する",
+    "- 「発言回数を増やす」は、総文字数レンジを超えない範囲でのみ適用する",
     "- 文字数調整は1発言の長文化ではなく、発言回数で行う",
     "- 短文ラリーのテンポを維持する",
     "- 最後は短くフェードアウトし、総括で閉じない"
   ];
+
+  if (mode.preset_id === "standard") {
+    base.push("- standard では10〜13発言を目安にし、18発言まで伸ばさない");
+    base.push("- standard では1発言の目安を90字前後にし、120字超は必要時のみにする");
+    base.push("- standard では150字発言を通常上限にせず、例外上限として連発しない");
+    base.push("- 1400〜1600字を超えそうな場合は、話を広げずフェードアウトする");
+  }
+
+  return base;
 }
 
 function formatPatch(patch) {
@@ -1279,15 +1394,58 @@ async function onCopyPrompt() {
   clearError();
   if (!el.finalPrompt.value.trim()) {
     showError("コピー対象がありません。先に Generate してください。");
+    flashButtonStatus(el.copyBtn, "コピー失敗", "error");
     return;
   }
 
   try {
     await navigator.clipboard.writeText(el.finalPrompt.value);
+    flashButtonStatus(el.copyBtn, "コピーOK");
   } catch (_error) {
-    el.finalPrompt.select();
-    document.execCommand("copy");
+    try {
+      el.finalPrompt.select();
+      const copied = document.execCommand("copy");
+      if (!copied) {
+        throw new Error("execCommand copy failed");
+      }
+      flashButtonStatus(el.copyBtn, "コピーOK");
+    } catch (fallbackError) {
+      showError(`コピーに失敗しました。\n${fallbackError.message}`);
+      flashButtonStatus(el.copyBtn, "コピー失敗", "error");
+    }
   }
+}
+
+async function onOpenGemini() {
+  clearError();
+  const promptText = (el.finalPrompt?.value || "").trim();
+  if (!promptText) {
+    showError("Geminiで開く前に、先に Generate してください。");
+    return;
+  }
+
+  await openGeminiWithPrompt(promptText);
+}
+
+async function openGeminiWithPrompt(promptText) {
+  try {
+    await navigator.clipboard.writeText(promptText);
+  } catch (error) {
+    console.warn("clipboard failed", error);
+  }
+
+  const schemes = ["googlegemini://", "googleapp://robin"];
+  const fallback = "https://gemini.google.com/";
+
+  window.location.href = schemes[0];
+
+  setTimeout(() => {
+    window.location.href = schemes[1];
+
+    setTimeout(() => {
+      window.location.href = fallback;
+    }, 700);
+  }, 700);
 }
 
 async function fetchJson(path, label) {
@@ -1340,4 +1498,26 @@ function showError(message) {
 function clearError() {
   el.errorBox.hidden = true;
   el.errorBox.textContent = "";
+}
+
+function flashButtonStatus(button, message, type = "success", duration = 1400) {
+  if (!button) {
+    return;
+  }
+
+  const originalHtml = button.dataset.originalHtml || button.innerHTML;
+  button.dataset.originalHtml = originalHtml;
+
+  button.textContent = message;
+  button.classList.remove("is-success", "is-error");
+  button.classList.add(type === "error" ? "is-error" : "is-success");
+
+  if (button._flashTimer) {
+    clearTimeout(button._flashTimer);
+  }
+  button._flashTimer = setTimeout(() => {
+    button.innerHTML = button.dataset.originalHtml || originalHtml;
+    button.classList.remove("is-success", "is-error");
+    button._flashTimer = null;
+  }, duration);
 }

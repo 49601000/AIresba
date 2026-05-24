@@ -22,20 +22,23 @@
     },
     "standard": {
       "display_name": "標準 1400〜1600",
+      "priority": "total_chars_first",
       "mode": "target_range",
       "target_total_chars": {
         "min": 1400,
         "max": 1600,
-        "unit": "japanese_characters"
+        "unit": "japanese_characters",
+        "hardness": "strong"
       },
       "utterance_count": {
-        "min": 12,
-        "max": 18
+        "min": 10,
+        "max": 13
       },
       "per_utterance_chars": {
         "default_min": 60,
-        "default_max": 150,
-        "frenzy_max": 300
+        "default_target": 90,
+        "default_max": 120,
+        "frenzy_max": 220
       }
     },
     "long": {
@@ -77,8 +80,11 @@
     }
   },
   "rules": [
-    "会話全体の総文字数を指定レンジに収める",
+    "総文字数レンジを最優先する",
+    "文字数 > ターン数 > 各発言の濃さ の優先順位で調整する",
     "短文ラリーを維持しつつ、発言回数で分量を調整する",
+    "standardでは1発言を平均90字前後に保つ",
+    "standardでは120字超は必要時のみとし、150字は例外上限として連発しない",
     "1発言を長くして帳尻を合わせない",
     "Claude退場後も最低4〜6発言は継続する",
     "最後は総括せず、短くフェードアウトする"
