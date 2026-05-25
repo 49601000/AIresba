@@ -1,34 +1,34 @@
 # AIレスバ演出エンジン v1.3
 
-GPT / Claude / Grok / Gemini の4人格による仮想討論を生成する、静的Webアプリです。  
-`patch` を選択適用して、イベント演出やゲスト乱入を加えた最終プロンプトを runtime で合成します。
+GPT / Claude / Grok / Gemini の4人格で討論プロンプトを合成する静的Webアプリです。  
+ダイス分岐・スタイル・開幕モード・分量プリセット・Patch適用を組み合わせて、最終プロンプトを生成します。
 
-## 特徴
+## 現在の主な機能
 
-- 固定レギュラー4人格（`characters/*.json`）
-- 1d20ダイスで進行ルール分岐（`rules/rule1-5.json`）
-- patch選択適用（`patches/index.json` + 各patch JSON）
-- guest_character の追加参加
-- strict prompt assembly order
-- localStorage保存（topic / patch選択 / dice / rule / final prompt）
+- 1d20ダイスで適用ルールを決定（`rule1`〜`rule5`）
+- Style選択（`styles/index.json` + 各style JSON）
+- Opening Mode選択（`base/opening_policy.json`）
+- Length Preset選択 + custom min/max（`base/length_policy.json`）
+- Patch選択適用（`patches/index.json` + 各patch JSON）
+- `guest_character` によるゲスト参戦
+- 最終プロンプトのコピー
+- iOSのみ `Geminiで開く` ボタンを表示し、`googlegemini://` で起動
+- localStorageで状態保存
 
 ## 動作環境
 
 - HTML / CSS / Vanilla JavaScript
-- API不要
+- APIキー不要
 - 静的ホスティング対応
 
-## 起動方法（重要）
+## 起動方法
 
-`fetch` を使うため、`file://` 直開きでは動作しません。  
-ローカルサーバを起動してアクセスしてください。
+`fetch` を利用するため、`file://` 直開きでは動きません。ローカルサーバ経由で起動してください。
 
 ```bash
 cd 19_AIレスバ
 python -m http.server 8000
 ```
-
-ブラウザで以下を開く:
 
 ```text
 http://localhost:8000
@@ -37,37 +37,67 @@ http://localhost:8000
 ## 使い方
 
 1. 議題を入力
-2. `Roll (1d20)` を押して出目を確定
-3. 必要な patch をチェック
-4. `Generate Prompt` で最終プロンプトを合成
-5. `Copy` でコピー
+2. `Roll (1d20)` を押す
+3. Style / Opening / Length / Patch を必要に応じて調整
+4. `Generate Prompt` を押す
+5. `Copy` でコピー（iOSでは `Geminiで開く` も利用可）
 
 ## ダイス分岐
 
-- 1–5: `rule1`
-- 6–7: `rule5`
+- 1〜5: `rule1`
+- 6〜7: `rule5`
 - 8: `rule4`
-- 9–14: `rule2`
-- 15–20: `rule3`
+- 9〜14: `rule2`
+- 15〜20: `rule3`
 
-## Prompt Assembly Order
+## Prompt Assembly（実装準拠）
 
-1. `base/base_prompt.txt`
-2. `base/output_format.txt`
-3. `base/dictionary.txt`
-4. `characters/*.json`（固定4人格）
-5. `rules/selected_rule.json`
-6. `patches/enabled`
-7. `guest_character.prompt_fragment`
-8. runtime input（議題・出目・選択ルール等）
+`app.js` の `assemblePrompt()` は以下のレイヤー順で出力します。
 
-## ディレクトリ構成
+1. Layer 1: `base/debate_engine.txt`（読み込み失敗時は `base/base_prompt.txt`）
+2. Layer 2: Persona Brain Layers（`personas/*.json` 優先、失敗時は `characters/*.json`）
+3. Layer 3: Rule（選択rule + 適用patch + guest情報）
+4. Layer 4: Style Renderer（選択style）
+5. Layer 5: Opening Policy（選択モード）
+6. Layer 6: Length Policy（選択プリセット / custom）
+7. Layer 7: Topic（議題、出目、必須構成指示）
+8. Layer 8: `base/output_format.txt`
+
+## localStorage保存キー
+
+- `resuba_topic`
+- `resuba_enabled_patch_ids`
+- `resuba_dice_result`
+- `resuba_selected_rule_id`
+- `resuba_selected_style`
+- `resuba_selected_opening_mode`
+- `resuba_selected_length_preset`
+- `resuba_custom_length_min`
+- `resuba_custom_length_max`
+- `resuba_final_prompt`
+
+## ディレクトリ構成（主要）
 
 ```text
 /base
   base_prompt.txt
-  output_format.txt
+  debate_engine.txt
   dictionary.txt
+  opening_policy.json
+  length_policy.json
+  output_format.txt
+
+/personas
+  gpt.json
+  claude.json
+  grok.json
+  gemini.json
+
+/characters          # 旧形式フォールバック
+  gpt.json
+  claude.json
+  grok.json
+  gemini.json
 
 /rules
   rule1.json
@@ -76,11 +106,9 @@ http://localhost:8000
   rule4.json
   rule5.json
 
-/characters
-  gpt.json
-  claude.json
-  grok.json
-  gemini.json
+/styles
+  index.json
+  nanj.json
 
 /patches
   index.json
@@ -95,24 +123,19 @@ http://localhost:8000
 index.html
 style.css
 app.js
+jemi.html
+manifest.webmanifest
 ```
 
-## Patch Index 自動生成
-
-`patches/index.json` は以下で再生成できます。
+## Patch Index 再生成
 
 ```bash
 node scripts/build-patch-index.js
 ```
 
-仕様:
+スクリプト仕様:
 
-- `patches/*.json` を読み込み
-- `index.json` は除外
-- `id` 昇順でソート
-- 不正JSONは warning 出力
-
-## 補足
-
-- `characters` は人格データ層、`patches` は演出レイヤーです。
-- 発言順は固定ではなく、討論の流れに応じて扱います。
+- `patches/*.json` を走査（`index.json` は除外）
+- 必須項目 `id`, `label`, `type` があるものだけ採用
+- `id` 昇順で `patches/index.json` を再生成
+- 不正JSONや必須欠落は warning を出してスキップ
