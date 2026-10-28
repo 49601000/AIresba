@@ -2,24 +2,20 @@
 
 const state = { items: [] };
 const $ = (selector) => document.querySelector(selector);
-
-function makeId() {
-  if (globalThis.crypto?.randomUUID) return `ce_${crypto.randomUUID()}`;
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = [...bytes].map((value) => value.toString(16).padStart(2, "0"));
-  return `ce_${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
-}
+const ID_PATTERN = /^ce_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ID_SEARCH_PATTERN = /\bce_[a-z0-9-]+\b/i;
 
 function buildPrompt() {
   const theme = $("#theme").value.trim() || "おまかせ";
   const count = $("#count").value;
   const extra = $("#extra").value.trim() || "なし";
-  $("#promptPreview").value = `既存の「Claude退場理由データベース」を、あなたが利用可能な環境で参照し、過去の理由と重複しない新しい案を考えてください。
+  $("#promptPreview").value = `Google Drive内の既存「Claude退場理由台帳」を参照し、過去の理由と重複しない新しい案を考えてください。
+対象スプレッドシート：https://docs.google.com/spreadsheets/d/1K2eeYit2VC8dsKNJsgvgGNao3Z4vt2mt-rTRduY2Jjc/edit
+対象シート：退場理由台帳
+列構成：A=ID、B=タイトル、C=台詞（セリフ）、D=使用状態、E=使用済み反映日時
+
 題材・設定・展開・オチの重複を避け、既存案の単なる言い換えにはしないでください。
-DBを参照できない場合は、その事実だけを一文で明記し、理由や調査経緯を長く説明せずに候補生成を続けてください。参照したふりはしないでください。
+DB参照や書き込みに失敗した場合は、その事実を明示し、登録済みと偽らないでください。
 
 テーマ：${theme}
 生成件数：${count}件
@@ -34,7 +30,17 @@ Claudeは穏やかで理性的、育ちが良く、相手への配慮を忘れ�
 基本構造は「短い退場の切り出し → 具体的で不条理な理由 → 必要なら穏やかな一言で退場」とし、長い背景説明、執事とのやり取り、事情の詳細、オチの解説は不要です。不条理さの核となる具体的なアイテム、数字、行動は残してください。
 各案は、次の組で示してください。
 1. 番号付きの具体的な見出し（人間が管理するためのラベル）
-2. Claude本人が帰宅の理由を語る、一人称のセリフ（「」で囲む）
+2. 新しい候補ごとにあなたが発行する一意のUUID v4（ce_接頭辞付き）
+3. Claude本人が帰宅の理由を語る、一人称のセリフ（「」で囲む）
+
+各候補について、発行したものと同じID・タイトル・セリフを対象シートへ新しい行として追加してください。使用状態は「UNUSED」、使用済み反映日時は空欄にしてください。既存の行・ID・使用状態は変更しないでください。
+登録後に書き込まれた内容を確認し、次の形式で登録結果を出力してください。
+
+1. 庭園のチェンバロと12羽の孔雀
+ID: ce_xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+セリフ: 「あ、すまん。実家の庭園で……」
+
+番号・タイトル・ID・セリフを明確に区別し、出力するIDは台帳へ登録したIDと完全に一致させてください。
 
 セリフは後続の会話の文脈に応じて自然にアレンジできる創作素材です。一字一句を固定する必要はありません。
 同じ発想やオチに偏らず、自由に発想してください。必要であれば注釈やイメージ図を添えても構いません。`;
@@ -83,10 +89,11 @@ function extractIdeas(text) {
     const end = index + 1 < headings.length ? headings[index + 1].index : text.length;
     const block = `${heading[2]}\n${text.slice(start, end)}`;
     const title = normalizeTitle(heading[2]);
+    const id = block.match(ID_SEARCH_PATTERN)?.[0] ?? "";
     const quote = block.match(/「([\s\S]*?)」|『([\s\S]*?)』/);
     const dialogue = quote?.[1] ?? quote?.[2];
     if (title && dialogue?.trim()) {
-      ideas.push({ title, dialogue: dialogue.trim().replace(/\s*\n\s*/g, " ") });
+      ideas.push({ id, title, dialogue: dialogue.trim().replace(/\s*\n\s*/g, " ") });
     } else {
       rejected.push(`${heading[1]}. ${title || "（見出しなし）"}`);
     }
@@ -95,21 +102,23 @@ function extractIdeas(text) {
 }
 
 function addItem(title = "", dialogue = "") {
-  state.items.push({ id: makeId(), title, dialogue, adopted: true });
+  state.items.push({ id: "", title, dialogue, adopted: true });
   renderItems();
 }
 
 function parseSource() {
-  if (state.items.length && !window.confirm("現在の編集候補とIDを破棄し、新しい抽出結果に置き換えますか？")) {
+  if (state.items.length && !window.confirm("現在の編集候補を破棄し、新しい抽出結果に置き換えますか？")) {
     setParseNotice("再抽出をキャンセルしました。編集候補とIDは維持されています。");
     return;
   }
   const source = $("#sourceText").value;
   const result = extractIdeas(source);
   if (result.ideas.length) {
-    state.items = result.ideas.map((idea) => ({ ...idea, id: makeId(), adopted: true }));
+    state.items = result.ideas.map((idea) => ({ ...idea, adopted: true }));
+    const missingIds = result.ideas.filter((idea) => !idea.id).length;
     const missed = result.rejected.length ? ` ${result.rejected.length}件はセリフを確認できず除外しました。原文を確認し、必要なら手動追加してください。` : "";
-    setParseNotice(`${result.ideas.length}件を候補として抽出しました。内容を確認してください。${missed}`, Boolean(result.rejected.length));
+    const idWarning = missingIds ? ` ${missingIds}件はIDがなく、DB未登録の可能性があります。` : "";
+    setParseNotice(`${result.ideas.length}件を候補として抽出しました。内容を確認してください。${idWarning}${missed}`, Boolean(missingIds || result.rejected.length));
   } else {
     state.items = [];
     const detail = result.headingCount ? "番号付き見出しは見つかりましたが、「」内のセリフと組にできませんでした。" : "番号付き見出しと「」内のセリフの組を見つけられませんでした。";
@@ -126,14 +135,16 @@ function setParseNotice(message, warning = false) {
 
 function bindCard(card, item) {
   const adopted = card.querySelector(".idea-adopted");
+  const id = card.querySelector(".idea-id");
   const title = card.querySelector(".idea-title");
   const dialogue = card.querySelector(".idea-dialogue");
   adopted.checked = item.adopted;
+  id.value = item.id;
   title.value = item.title;
   dialogue.value = item.dialogue;
   card.classList.toggle("is-excluded", !item.adopted);
-  card.querySelector(".id-line").textContent = `ID: ${item.id}`;
   adopted.addEventListener("change", () => { item.adopted = adopted.checked; card.classList.toggle("is-excluded", !item.adopted); updateJson(); });
+  id.addEventListener("input", () => { item.id = id.value.trim(); updateJson(); });
   title.addEventListener("input", () => { item.title = title.value; updateJson(); });
   dialogue.addEventListener("input", () => { item.dialogue = dialogue.value; updateJson(); });
   card.querySelector(".delete-button").addEventListener("click", () => { state.items = state.items.filter((candidate) => candidate !== item); renderItems(); });
@@ -154,18 +165,21 @@ function renderItems() {
 }
 
 function exportableItems() {
-  return state.items.filter((item) => item.adopted && item.title.trim() && item.dialogue.trim()).map(({ id, title, dialogue }) => ({ id, title: title.trim(), dialogue: dialogue.trim() }));
+  const duplicateAdoptedIds = duplicateIds(state.items.filter((item) => item.adopted));
+  return state.items
+    .filter((item) => item.adopted && ID_PATTERN.test(item.id) && !duplicateAdoptedIds.has(item.id.toLowerCase()) && item.title.trim() && item.dialogue.trim())
+    .map(({ id, title, dialogue }) => ({ id, title: title.trim(), dialogue: dialogue.trim() }));
 }
 
-function duplicatePairs(items) {
-  const seen = new Set();
+function duplicateIds(items) {
+  const seen = new Map();
   const duplicates = new Set();
   items.forEach((item) => {
-    const key = `${item.title}\u0000${item.dialogue}`;
-    if (seen.has(key)) duplicates.add(item.title);
-    seen.add(key);
+    const key = item.id.toLowerCase();
+    if (key && seen.has(key)) duplicates.add(key);
+    if (key) seen.set(key, item);
   });
-  return [...duplicates];
+  return duplicates;
 }
 
 function updateJson() {
@@ -174,17 +188,38 @@ function updateJson() {
   $("#jsonPreview").textContent = JSON.stringify(payload, null, 2);
   $("#adoptedCount").textContent = `採用 ${items.length}件`;
   $("#downloadJson").disabled = items.length === 0;
-  const duplicates = duplicatePairs(items);
+  const duplicates = duplicateIds(state.items);
+  const duplicateAdoptedIds = duplicateIds(state.items.filter((item) => item.adopted));
+  document.querySelectorAll(".idea-card").forEach((card, index) => {
+    const item = state.items[index];
+    const idInput = card.querySelector(".idea-id");
+    const warning = card.querySelector(".item-warning");
+    const isDuplicate = item.id && duplicates.has(item.id.toLowerCase());
+    const invalidId = item.id && !ID_PATTERN.test(item.id);
+    idInput.classList.toggle("is-invalid", Boolean(invalidId || isDuplicate));
+    if (!item.id) warning.textContent = "DB未登録の可能性あり：IDがないためJSONから除外します。";
+    else if (invalidId) warning.textContent = "ID形式が不正なためJSONから除外します。ce_付きUUID v4を入力してください。";
+    else if (isDuplicate) warning.textContent = "同じIDが複数候補にあります。重複した候補は確認・修正してください。";
+    else warning.textContent = "";
+  });
+  const missingIds = state.items.filter((item) => item.adopted && !item.id).length;
+  const invalidIds = state.items.filter((item) => item.adopted && item.id && !ID_PATTERN.test(item.id)).length;
   const incomplete = state.items.filter((item) => item.adopted && (!item.title.trim() || !item.dialogue.trim())).length;
   const validation = $("#validationNotice");
-  if (duplicates.length) {
-    validation.textContent = `完全一致する候補があります：${duplicates.join("、")}。必要なら除外または修正してください。`;
+  if (duplicateAdoptedIds.size) {
+    validation.textContent = `採用中の重複IDはJSONから除外されています：${[...duplicateAdoptedIds].join("、")}。修正または一方を除外してください。`;
+    validation.classList.add("warning");
+  } else if (invalidIds) {
+    validation.textContent = `採用中の${invalidIds}件はID形式が不正なため、JSONから除外されています。`;
+    validation.classList.add("warning");
+  } else if (missingIds) {
+    validation.textContent = `採用中の${missingIds}件はIDがありません（DB未登録の可能性あり）。JSONから除外されています。`;
     validation.classList.add("warning");
   } else if (incomplete) {
     validation.textContent = `採用中の${incomplete}件は見出しまたはセリフが空のため、JSONから除外されています。`;
     validation.classList.add("warning");
   } else {
-    validation.textContent = `形式確認済み：採用された${items.length}件を出力します。IDはこの画面で編集・再出力しても維持されます。`;
+    validation.textContent = `形式確認済み：採用された${items.length}件を、Gemini出力と同じIDで出力します。`;
     validation.classList.remove("warning");
   }
 }

@@ -64,10 +64,10 @@
         <textarea id="sourceText" class="source-text" rows="12" placeholder="前置きや注釈を含め、Geminiの回答をそのまま貼り付けてください。"></textarea>
       </label>
       <div class="button-row">
-        <button id="extractButton" class="button primary">見出しとセリフを抽出</button>
+        <button id="extractButton" class="button primary">ID・見出し・セリフを抽出</button>
         <button id="clearSource" class="button ghost">原文をクリア</button>
       </div>
-      <div id="parseNotice" class="notice" aria-live="polite">「1. 見出し」と「セリフ」の組を検出します。抽出できなくても手動追加できます。</div>
+      <div id="parseNotice" class="notice" aria-live="polite">「1. 見出し」「ID」「セリフ」の組を検出します。IDは手動でも入力・修正できます。</div>
 
       <div class="results-heading">
         <div><h3>編集・採用候補</h3><span id="itemCount" class="count-badge">0件</span></div>
@@ -77,7 +77,7 @@
 
       <div class="json-section">
         <div class="output-header"><div><span class="step">STEP 3</span><h2>JSONを確認して保存</h2></div><span id="adoptedCount" class="status">採用 0件</span></div>
-        <div id="validationNotice" class="notice">採用し、見出しとセリフが揃った候補だけを出力します。</div>
+        <div id="validationNotice" class="notice">採用し、有効なID・見出し・セリフが揃った候補だけを出力します。</div>
         <pre id="jsonPreview" tabindex="0" aria-label="JSONプレビュー"></pre>
         <button id="downloadJson" class="button primary full" disabled>JSONをダウンロード</button>
       </div>
@@ -90,9 +90,10 @@
         <span class="idea-number"></span>
         <button class="delete-button" type="button" aria-label="候補を削除">削除</button>
       </div>
+      <label class="field"><span>ID</span><input class="idea-id" type="text" placeholder="ce_550e8400-e29b-41d4-a716-446655440000" spellcheck="false"></label>
       <label class="field"><span>見出し</span><input class="idea-title" type="text" placeholder="管理用の短い見出し"></label>
       <label class="field"><span>Claudeのセリフ</span><textarea class="idea-dialogue" rows="4" placeholder="一人称の退場理由"></textarea></label>
-      <p class="id-line"></p>
+      <p class="item-warning" aria-live="polite"></p>
     </article>
   </template>
   <script src="app.js"></script>
