@@ -1,6 +1,6 @@
 # Claudeくん退場理由メーカー v1.1 — Codex実装仕様
 
-状態: v1.1実装 / 2026-10-28
+状態: 静的v1.1実装 / GAS版は `claude-exit-maker-gas/` に分離 / 2026-10-29
 関連: [AIレスバ v1.5](./SPECIFICATION_v1.5.md)
 共通規約: https://github.com/49601000/development-standard/blob/main/AGENTS.md
 
@@ -8,14 +8,14 @@
 
 AIレスバのClaude退場理由が似通い、生成後に別のGeminiへ代案を依頼する手戻りが発生している。Geminiで先に多様な退場理由を量産し、人間の選別後にDrive管理用JSONとして保存する。
 
-**このメーカー自身はDBを一切参照しない。** Google Drive、Sheets、GAS、API、ローカルDB、既存ネタJSONの読込、重複照合は実装しない。メーカーのTab①は**「Gemini自身が、ユーザーのGemini環境で利用可能な既存DBを参照して重複を避ける」よう指示するプロンプトを作るだけ**。Geminiのスキル/接続設定とDB実参照の可否はユーザー側の責務。メーカーは参照済みと保証・表示しない。
+静的v1.1はDBを参照しない復元用の独立版として維持する。GAS版はGoogle Sheetsを唯一の正本として件数・未使用一覧・ID検索を読み取り、安全な `UNUSED` → `USED` 更新を行う。Tab①は引き続き、Gemini自身がSheetsを参照して重複を避け、候補を直接登録するよう指示するプロンプトを作る。メーカーはGemini APIを呼ばず、Geminiの登録成否を自動判定しない。
 
 v1.1ではID発行もGeminiの責務とする。Geminiは新規候補ごとに `ce_` 付きUUID v4を発行し、同じID・タイトル・セリフを「Claude退場理由台帳」へ登録してから結果を出力する。メーカーはそのIDを抽出・保持し、JSON生成時に再発行しない。
 
 ## 技術・スコープ
 
-- HTML + CSS + Vanilla JavaScript の独立した静的2タブUI。スマホ/iPhoneでも操作できるレスポンシブ対応。
-- Gemini API呼出し、OAuth、Google接続、GAS、Sheets同期、AIレスバ本体の改修は対象外。
+- HTML + CSS + Vanilla JavaScript の2タブUI。静的版とGAS HTML Service版を分離し、スマホ/iPhoneでも操作できるレスポンシブ対応。
+- Gemini API呼出し、AIレスバ本体の改修は対象外。GAS版だけが `google.script.run` でSheetsを参照・更新する。
 - 既存AIレスバ v1.4のコード・公開ページは変更しない。
 - Geminiへのプロンプトはコピー＆ペーストで送る。Geminiの回答もコピー＆ペーストで取り込む。
 - 軽量な個人用ツール。過度なフレームワーク、バックエンド、複雑なテスト環境を導入しない。
