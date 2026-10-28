@@ -77,9 +77,10 @@ function extractIdeas(text) {
     const end = index + 1 < headings.length ? headings[index + 1].index : text.length;
     const block = `${heading[2]}\n${text.slice(start, end)}`;
     const title = normalizeTitle(heading[2]);
-    const quote = block.match(/[「『]([\s\S]*?)[」』]/);
-    if (title && quote?.[1]?.trim()) {
-      ideas.push({ title, dialogue: quote[1].trim().replace(/\s*\n\s*/g, " ") });
+    const quote = block.match(/「([\s\S]*?)」|『([\s\S]*?)』/);
+    const dialogue = quote?.[1] ?? quote?.[2];
+    if (title && dialogue?.trim()) {
+      ideas.push({ title, dialogue: dialogue.trim().replace(/\s*\n\s*/g, " ") });
     } else {
       rejected.push(`${heading[1]}. ${title || "（見出しなし）"}`);
     }
@@ -93,6 +94,10 @@ function addItem(title = "", dialogue = "") {
 }
 
 function parseSource() {
+  if (state.items.length && !window.confirm("現在の編集候補とIDを破棄し、新しい抽出結果に置き換えますか？")) {
+    setParseNotice("再抽出をキャンセルしました。編集候補とIDは維持されています。");
+    return;
+  }
   const source = $("#sourceText").value;
   const result = extractIdeas(source);
   if (result.ideas.length) {
