@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <script>(function(){try{var m=new URLSearchParams(location.search).get("splash");if(m==="1"||m==="debug")document.documentElement.classList.add("pre-splash");}catch(e){}}());</script>
+  <style><?!= include_("Style"); ?></style>
+</head>
+<body>
+  <div id="splash-screen" class="splash-overlay"><div class="splash-inner"><h2 class="splash-title">AIレスバ生成</h2><p class="splash-subtitle">Initializing Debate Engine...</p></div></div>
+  <header class="app-header"><div class="topbar"><div class="topbarLeft"><div class="brandMark" aria-hidden="true">⬢</div><div class="brandText">PromptBuilder</div><div class="topbarDivider" aria-hidden="true"></div><h1 class="topbarTitle">AIレスバ演出エンジン</h1></div><div class="topbarVersion">v1.5 GAS</div></div></header>
+  <main class="app">
+    <section class="panel"><label for="topicInput" class="label">議題</label><textarea id="topicInput" rows="3" placeholder="例: 回転寿司でまず何を食べるべきか"></textarea></section>
+    <section class="panel"><label for="styleSelect" class="label">Style</label><select id="styleSelect"></select></section>
+    <section class="panel"><label for="openingModeSelect" class="label">Opening Mode</label><select id="openingModeSelect"></select></section>
+    <section class="panel"><label for="lengthPresetSelect" class="label">会話分量</label><select id="lengthPresetSelect"></select><div class="length-custom"><label for="lengthMinInput">min</label><input id="lengthMinInput" type="number" min="100" step="50"><label for="lengthMaxInput">max</label><input id="lengthMaxInput" type="number" min="100" step="50"></div></section>
+    <section class="panel"><label for="claudeExitSelect" class="label">Claude退場理由</label><select id="claudeExitSelect"><option value="">指定しない</option></select><p id="claudeExitStatus" class="db-status">未使用候補を読み込んでいます。</p></section>
+    <section class="panel controls"><button id="rollBtn" type="button">Roll (1d20)</button><button id="generateBtn" type="button">Generate Prompt</button><button id="copyBtn" type="button">Copy</button><button id="geminiOpenBtn" type="button" class="gemini-open-btn" hidden>Geminiで開く</button></section>
+    <section class="panel status"><p>ダイスロール結果: <strong id="diceResult">未ロール</strong></p><p>適用ルール: <strong id="selectedRule">未選択</strong></p><p>Style: <strong id="selectedStyle">nanj</strong></p><p>Opening: <strong id="selectedOpeningMode">gpt_default</strong></p><p>Length: <strong id="selectedLengthPreset">standard</strong></p></section>
+    <section class="panel"><h2>Patch Selector</h2><div id="patchContainer" class="patches"></div></section>
+    <section class="panel error" id="errorBox" hidden></section>
+    <section class="panel"><label for="finalPrompt" class="label">Final Prompt</label><textarea id="finalPrompt" rows="22" readonly></textarea></section>
+  </main>
+  <?!= include_("Client"); ?>
+</body>
+</html>
