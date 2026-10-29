@@ -1,6 +1,6 @@
-# AIレスバ演出エンジン v1.5 GAS版
+# AIレスバ演出エンジン v1.5.1 GAS版
 
-既存GitHub Pages版を変更せず、v1.4のプロンプト生成機能をGAS HTML Serviceへ移植した独立アプリです。Google Sheets `退場理由台帳` の未使用候補を任意選択し、生成済みプロンプトをCopyした時だけ `USED` に更新します。
+v1.5 GAS版を基に、プロンプトをLayer 0〜8へ再構成した独立アプリです。内容生成と最終書式校正を分離し、既存の人格・Rule・Style・Patch・Sheets連携を維持します。Google Sheets `退場理由台帳` の未使用候補は任意選択でき、生成済みプロンプトをCopyした時だけ `USED` に更新します。
 
 ## 同期と配置
 

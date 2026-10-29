@@ -10,7 +10,7 @@ var AIRESBA_DB = Object.freeze({
 function doGet() {
   return HtmlService.createTemplateFromFile("Index")
     .evaluate()
-    .setTitle("AIレスバ演出エンジン v1.5")
+    .setTitle("AIレスバ演出エンジン v1.5.1")
     .addMetaTag("viewport", "width=device-width, initial-scale=1, viewport-fit=cover");
 }
 
