@@ -1,0 +1,251 @@
+"use strict";
+
+const state = { items: [] };
+const $ = (selector) => document.querySelector(selector);
+const ID_PATTERN = /^ce_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ID_SEARCH_PATTERN = /\bce_[a-z0-9-]+\b/i;
+
+function buildPrompt() {
+  const theme = $("#theme").value.trim() || "おまかせ";
+  const count = $("#count").value;
+  const extra = $("#extra").value.trim() || "なし";
+  $("#promptPreview").value = `Google Drive内の既存「Claude退場理由台帳」を参照し、過去の理由と重複しない新しい案を考えてください。
+対象スプレッドシート：https://docs.google.com/spreadsheets/d/1K2eeYit2VC8dsKNJsgvgGNao3Z4vt2mt-rTRduY2Jjc/edit
+対象シート：退場理由台帳
+列構成：A=ID、B=タイトル、C=台詞（セリフ）、D=使用状態、E=使用済み反映日時
+
+題材・設定・展開・オチの重複を避け、既存案の単なる言い換えにはしないでください。
+DB参照や書き込みに失敗した場合は、その事実を明示し、登録済みと偽らないでください。
+
+テーマ：${theme}
+生成件数：${count}件
+追加指示：${extra}
+
+「高貴さと不条理さが混ざった、少し不思議でシュールな退場理由」の候補を新しく考えてください。高貴・不条理・具体的・無駄に大げさな発想を歓迎します。
+Claudeは穏やかで理性的、育ちが良く、相手への配慮を忘れない人物です。一人称は「僕」。セリフ本文は柔らかい関西弁・なんJ語を基調とし、過度に標準語へ寄せないでください。ただし、すべての文末を関西弁に統一する必要はありません。
+高貴さ・上品さ・育ちの良さは、言葉遣いではなく家庭環境、生活習慣、価値観、振る舞い、退場理由の内容から表現してください。
+本文中の「〜やねん」「〜なんよ」「〜せなあかん」「〜でな」「〜やから」「〜かもしれん」などは、自然な会話の中で使って構いません。
+退場の冒頭と締めだけは相手への配慮が感じられる穏やかな言い方にしてください。冒頭は「あ、すまん」「ごめんね」「悪いね」、締めは「失礼するね」「帰るよ」「今日はここまでにするよ」「お先にお暇するね」などを参考にしてください。「悪いな」「帰るわ」「失礼するで」「今日はここまでな」のようなぶっきらぼうな挨拶や、「わたくし」「〜ですわ」「〜ますの」などのお嬢様口調は避けてください。過度に丁寧な謝罪や長い前置きも不要です。
+1案のセリフは原則50〜100字程度、できれば70〜90字を目標にし、既存レスバの途中へそのまま挿入できる短さにしてください。
+基本構造は「短い退場の切り出し → 具体的で不条理な理由 → 必要なら穏やかな一言で退場」とし、長い背景説明、執事とのやり取り、事情の詳細、オチの解説は不要です。不条理さの核となる具体的なアイテム、数字、行動は残してください。
+各案は、次の組で示してください。
+1. 番号付きの具体的な見出し（人間が管理するためのラベル）
+2. 新しい候補ごとにあなたが発行する一意のUUID v4（ce_接頭辞付き）
+3. Claude本人が帰宅の理由を語る、一人称のセリフ（「」で囲む）
+
+各候補について、発行したものと同じID・タイトル・セリフを対象シートへ新しい行として追加してください。使用状態は「UNUSED」、使用済み反映日時は空欄にしてください。既存の行・ID・使用状態は変更しないでください。
+登録後に書き込まれた内容を確認し、次の形式で登録結果を出力してください。
+
+1. 庭園のチェンバロと12羽の孔雀
+ID: ce_xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+セリフ: 「あ、すまん。実家の庭園で……」
+
+番号・タイトル・ID・セリフを明確に区別し、出力するIDは台帳へ登録したIDと完全に一致させてください。
+
+セリフは後続の会話の文脈に応じて自然にアレンジできる創作素材です。一字一句を固定する必要はありません。
+同じ発想やオチに偏らず、自由に発想してください。必要であれば注釈やイメージ図を添えても構いません。`;
+  $("#copyStatus").textContent = "コピー前";
+}
+
+async function copyPrompt() {
+  buildPrompt();
+  try {
+    await navigator.clipboard.writeText($("#promptPreview").value);
+    $("#copyStatus").textContent = "コピー済み";
+  } catch {
+    $("#promptPreview").select();
+    const copied = document.execCommand("copy");
+    $("#copyStatus").textContent = copied ? "コピー済み" : "選択しました（手動コピー）";
+  }
+}
+
+function switchTab(target) {
+  const promptSelected = target === "prompt";
+  $("#promptPanel").hidden = !promptSelected;
+  $("#extractPanel").hidden = promptSelected;
+  $("#tabPrompt").classList.toggle("is-active", promptSelected);
+  $("#tabExtract").classList.toggle("is-active", !promptSelected);
+  $("#tabPrompt").setAttribute("aria-selected", String(promptSelected));
+  $("#tabExtract").setAttribute("aria-selected", String(!promptSelected));
+}
+
+function normalizeTitle(value) {
+  return value.trim()
+    .replace(/^\s*[#*\-・]+\s*/, "")
+    .replace(/\s*[「『][\s\S]*$/, "")
+    .replace(/[*#：:]+\s*$/, "")
+    .replace(/^(?:見出し|タイトル)\s*[：:]\s*/, "")
+    .trim();
+}
+
+function extractIdeas(text) {
+  const headingPattern = /^\s*(?:#{1,6}\s*)?(?:\*{0,2})?(\d{1,3})\s*[\.．:：\)）]\s*(.+?)\s*$/gm;
+  const headings = [...text.matchAll(headingPattern)];
+  const ideas = [];
+  const rejected = [];
+
+  headings.forEach((heading, index) => {
+    const start = heading.index + heading[0].length;
+    const end = index + 1 < headings.length ? headings[index + 1].index : text.length;
+    const block = `${heading[2]}\n${text.slice(start, end)}`;
+    const title = normalizeTitle(heading[2]);
+    const id = block.match(ID_SEARCH_PATTERN)?.[0] ?? "";
+    const quote = block.match(/「([\s\S]*?)」|『([\s\S]*?)』/);
+    const dialogue = quote?.[1] ?? quote?.[2];
+    if (title && dialogue?.trim()) {
+      ideas.push({ id, title, dialogue: dialogue.trim().replace(/\s*\n\s*/g, " ") });
+    } else {
+      rejected.push(`${heading[1]}. ${title || "（見出しなし）"}`);
+    }
+  });
+  return { ideas, rejected, headingCount: headings.length };
+}
+
+function addItem(title = "", dialogue = "") {
+  state.items.push({ id: "", title, dialogue, adopted: true });
+  renderItems();
+}
+
+function parseSource() {
+  if (state.items.length && !window.confirm("現在の編集候補を破棄し、新しい抽出結果に置き換えますか？")) {
+    setParseNotice("再抽出をキャンセルしました。編集候補とIDは維持されています。");
+    return;
+  }
+  const source = $("#sourceText").value;
+  const result = extractIdeas(source);
+  if (result.ideas.length) {
+    state.items = result.ideas.map((idea) => ({ ...idea, adopted: true }));
+    const missingIds = result.ideas.filter((idea) => !idea.id).length;
+    const missed = result.rejected.length ? ` ${result.rejected.length}件はセリフを確認できず除外しました。原文を確認し、必要なら手動追加してください。` : "";
+    const idWarning = missingIds ? ` ${missingIds}件はIDがなく、DB未登録の可能性があります。` : "";
+    setParseNotice(`${result.ideas.length}件を候補として抽出しました。内容を確認してください。${idWarning}${missed}`, Boolean(missingIds || result.rejected.length));
+  } else {
+    state.items = [];
+    const detail = result.headingCount ? "番号付き見出しは見つかりましたが、「」内のセリフと組にできませんでした。" : "番号付き見出しと「」内のセリフの組を見つけられませんでした。";
+    setParseNotice(`${detail} 原文を残したまま、手動で候補を追加できます。`, true);
+  }
+  renderItems();
+}
+
+function setParseNotice(message, warning = false) {
+  const node = $("#parseNotice");
+  node.textContent = message;
+  node.classList.toggle("warning", warning);
+}
+
+function bindCard(card, item) {
+  const adopted = card.querySelector(".idea-adopted");
+  const id = card.querySelector(".idea-id");
+  const title = card.querySelector(".idea-title");
+  const dialogue = card.querySelector(".idea-dialogue");
+  adopted.checked = item.adopted;
+  id.value = item.id;
+  title.value = item.title;
+  dialogue.value = item.dialogue;
+  card.classList.toggle("is-excluded", !item.adopted);
+  adopted.addEventListener("change", () => { item.adopted = adopted.checked; card.classList.toggle("is-excluded", !item.adopted); updateJson(); });
+  id.addEventListener("input", () => { item.id = id.value.trim(); updateJson(); });
+  title.addEventListener("input", () => { item.title = title.value; updateJson(); });
+  dialogue.addEventListener("input", () => { item.dialogue = dialogue.value; updateJson(); });
+  card.querySelector(".delete-button").addEventListener("click", () => { state.items = state.items.filter((candidate) => candidate !== item); renderItems(); });
+}
+
+function renderItems() {
+  const container = $("#items");
+  container.replaceChildren();
+  state.items.forEach((item, index) => {
+    const fragment = $("#itemTemplate").content.cloneNode(true);
+    const card = fragment.querySelector(".idea-card");
+    card.querySelector(".idea-number").textContent = `候補 ${index + 1}`;
+    bindCard(card, item);
+    container.append(fragment);
+  });
+  $("#itemCount").textContent = `${state.items.length}件`;
+  updateJson();
+}
+
+function exportableItems() {
+  const duplicateAdoptedIds = duplicateIds(state.items.filter((item) => item.adopted));
+  return state.items
+    .filter((item) => item.adopted && ID_PATTERN.test(item.id) && !duplicateAdoptedIds.has(item.id.toLowerCase()) && item.title.trim() && item.dialogue.trim())
+    .map(({ id, title, dialogue }) => ({ id, title: title.trim(), dialogue: dialogue.trim() }));
+}
+
+function duplicateIds(items) {
+  const seen = new Map();
+  const duplicates = new Set();
+  items.forEach((item) => {
+    const key = item.id.toLowerCase();
+    if (key && seen.has(key)) duplicates.add(key);
+    if (key) seen.set(key, item);
+  });
+  return duplicates;
+}
+
+function updateJson() {
+  const items = exportableItems();
+  const payload = { schema_version: 1, type: "claude_exit_ideas", items };
+  $("#jsonPreview").textContent = JSON.stringify(payload, null, 2);
+  $("#adoptedCount").textContent = `採用 ${items.length}件`;
+  $("#downloadJson").disabled = items.length === 0;
+  const duplicates = duplicateIds(state.items);
+  const duplicateAdoptedIds = duplicateIds(state.items.filter((item) => item.adopted));
+  document.querySelectorAll(".idea-card").forEach((card, index) => {
+    const item = state.items[index];
+    const idInput = card.querySelector(".idea-id");
+    const warning = card.querySelector(".item-warning");
+    const isDuplicate = item.id && duplicates.has(item.id.toLowerCase());
+    const invalidId = item.id && !ID_PATTERN.test(item.id);
+    idInput.classList.toggle("is-invalid", Boolean(invalidId || isDuplicate));
+    if (!item.id) warning.textContent = "DB未登録の可能性あり：IDがないためJSONから除外します。";
+    else if (invalidId) warning.textContent = "ID形式が不正なためJSONから除外します。ce_付きUUID v4を入力してください。";
+    else if (isDuplicate) warning.textContent = "同じIDが複数候補にあります。重複した候補は確認・修正してください。";
+    else warning.textContent = "";
+  });
+  const missingIds = state.items.filter((item) => item.adopted && !item.id).length;
+  const invalidIds = state.items.filter((item) => item.adopted && item.id && !ID_PATTERN.test(item.id)).length;
+  const incomplete = state.items.filter((item) => item.adopted && (!item.title.trim() || !item.dialogue.trim())).length;
+  const validation = $("#validationNotice");
+  if (duplicateAdoptedIds.size) {
+    validation.textContent = `採用中の重複IDはJSONから除外されています：${[...duplicateAdoptedIds].join("、")}。修正または一方を除外してください。`;
+    validation.classList.add("warning");
+  } else if (invalidIds) {
+    validation.textContent = `採用中の${invalidIds}件はID形式が不正なため、JSONから除外されています。`;
+    validation.classList.add("warning");
+  } else if (missingIds) {
+    validation.textContent = `採用中の${missingIds}件はIDがありません（DB未登録の可能性あり）。JSONから除外されています。`;
+    validation.classList.add("warning");
+  } else if (incomplete) {
+    validation.textContent = `採用中の${incomplete}件は見出しまたはセリフが空のため、JSONから除外されています。`;
+    validation.classList.add("warning");
+  } else {
+    validation.textContent = `形式確認済み：採用された${items.length}件を、Gemini出力と同じIDで出力します。`;
+    validation.classList.remove("warning");
+  }
+}
+
+function downloadJson() {
+  const items = exportableItems();
+  if (!items.length) return;
+  const payload = { schema_version: 1, type: "claude_exit_ideas", items };
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const date = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  link.href = url;
+  link.download = `claude-exit-ideas_${date}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$("#tabPrompt").addEventListener("click", () => switchTab("prompt"));
+$("#tabExtract").addEventListener("click", () => switchTab("extract"));
+[$("#theme"), $("#count"), $("#extra")].forEach((node) => node.addEventListener("input", buildPrompt));
+$("#copyPrompt").addEventListener("click", copyPrompt);
+$("#extractButton").addEventListener("click", parseSource);
+$("#clearSource").addEventListener("click", () => { $("#sourceText").value = ""; setParseNotice("原文をクリアしました。編集候補は残っています。"); });
+$("#addItem").addEventListener("click", () => addItem());
+$("#downloadJson").addEventListener("click", downloadJson);
+
+buildPrompt();
+renderItems();

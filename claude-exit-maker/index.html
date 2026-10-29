@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6efe3">
+  <title>Claudeくん退場理由メーカー</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">AIたちのレスバ会場 / 小道具工房</p>
+      <h1>Claudeくん<br class="mobile-break">退場理由メーカー</h1>
+      <p>高貴で不条理な帰宅理由をGeminiに考えてもらい、確認してJSONに整える独立ツールです。</p>
+      <div class="privacy-note">この画面からGemini・DB・Googleサービスへ接続することはありません。</div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="作業工程">
+      <button id="tabPrompt" class="tab is-active" role="tab" aria-selected="true" aria-controls="promptPanel">1 <span>プロンプト作成</span></button>
+      <button id="tabExtract" class="tab" role="tab" aria-selected="false" aria-controls="extractPanel">2 <span>抽出・JSON化</span></button>
+    </nav>
+
+    <section id="promptPanel" class="panel" role="tabpanel" aria-labelledby="tabPrompt">
+      <div class="section-heading">
+        <div><span class="step">STEP 1</span><h2>Geminiへの依頼を仕立てる</h2></div>
+        <p>入力に合わせてプレビューは自動更新されます。</p>
+      </div>
+
+      <div class="form-grid">
+        <label class="field field-wide">
+          <span>テーマ <small>空欄ならおまかせ</small></span>
+          <input id="theme" type="text" placeholder="例：王侯貴族のペット、妙に壮大な家事">
+        </label>
+        <label class="field">
+          <span>生成件数</span>
+          <select id="count">
+            <option value="5" selected>5件</option>
+            <option value="10">10件</option>
+            <option value="20">20件</option>
+          </select>
+        </label>
+        <label class="field field-wide">
+          <span>追加指示 <small>任意</small></span>
+          <textarea id="extra" rows="3" placeholder="例：動物ネタは少なめに。日常の用事を無駄に壮大にしてください。"></textarea>
+        </label>
+      </div>
+
+      <div class="output-block">
+        <div class="output-header"><h3>生成プロンプト</h3><span id="copyStatus" class="status" aria-live="polite">コピー前</span></div>
+        <textarea id="promptPreview" rows="18" readonly aria-label="生成プロンプトのプレビュー"></textarea>
+        <button id="copyPrompt" class="button primary full">プロンプトをコピー</button>
+      </div>
+    </section>
+
+    <section id="extractPanel" class="panel" role="tabpanel" aria-labelledby="tabExtract" hidden>
+      <div class="section-heading">
+        <div><span class="step">STEP 2</span><h2>Geminiの回答をほどく</h2></div>
+        <p>抽出結果は候補です。内容を確認してからJSONにしてください。</p>
+      </div>
+
+      <label class="field">
+        <span>Geminiの回答全文</span>
+        <textarea id="sourceText" class="source-text" rows="12" placeholder="前置きや注釈を含め、Geminiの回答をそのまま貼り付けてください。"></textarea>
+      </label>
+      <div class="button-row">
+        <button id="extractButton" class="button primary">ID・見出し・セリフを抽出</button>
+        <button id="clearSource" class="button ghost">原文をクリア</button>
+      </div>
+      <div id="parseNotice" class="notice" aria-live="polite">「1. 見出し」「ID」「セリフ」の組を検出します。IDは手動でも入力・修正できます。</div>
+
+      <div class="results-heading">
+        <div><h3>編集・採用候補</h3><span id="itemCount" class="count-badge">0件</span></div>
+        <button id="addItem" class="button small">＋ 手動で追加</button>
+      </div>
+      <div id="items" class="items"></div>
+
+      <div class="json-section">
+        <div class="output-header"><div><span class="step">STEP 3</span><h2>JSONを確認して保存</h2></div><span id="adoptedCount" class="status">採用 0件</span></div>
+        <div id="validationNotice" class="notice">採用し、有効なID・見出し・セリフが揃った候補だけを出力します。</div>
+        <pre id="jsonPreview" tabindex="0" aria-label="JSONプレビュー"></pre>
+        <button id="downloadJson" class="button primary full" disabled>JSONをダウンロード</button>
+      </div>
+    </section>
+  </main>
+  <template id="itemTemplate">
+    <article class="idea-card">
+      <div class="card-top">
+        <label class="adopt"><input class="idea-adopted" type="checkbox" checked><span>採用</span></label>
+        <span class="idea-number"></span>
+        <button class="delete-button" type="button" aria-label="候補を削除">削除</button>
+      </div>
+      <label class="field"><span>ID</span><input class="idea-id" type="text" placeholder="ce_550e8400-e29b-41d4-a716-446655440000" spellcheck="false"></label>
+      <label class="field"><span>見出し</span><input class="idea-title" type="text" placeholder="管理用の短い見出し"></label>
+      <label class="field"><span>Claudeのセリフ</span><textarea class="idea-dialogue" rows="4" placeholder="一人称の退場理由"></textarea></label>
+      <p class="item-warning" aria-live="polite"></p>
+    </article>
+  </template>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+"use strict";
+
+const state = { items: [], foundCandidate: null };
+const $ = (selector) => document.querySelector(selector);
+const ID_PATTERN = /^ce_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ID_SEARCH_PATTERN = /\bce_[a-z0-9-]+\b/i;
+
+function runServer(functionName, argument) {
+  return new Promise((resolve, reject) => {
+    let runner = google.script.run.withSuccessHandler(resolve).withFailureHandler((error) => reject(new Error(error && error.message ? error.message : String(error))));
+    if (arguments.length > 1) runner[functionName](argument); else runner[functionName]();
+  });
+}
+
+async function refreshDatabase() {
+  setDbStatus("台帳を読み込んでいます。");
+  $("#refreshDb").disabled = true;
+  try {
+    const [stats, unused] = await Promise.all([runServer("getDatabaseStats"), runServer("getUnusedCandidates")]);
+    $("#totalCount").textContent = stats.total;
+    $("#unusedCount").textContent = stats.unused;
+    $("#usedCount").textContent = stats.used;
+    $("#rejectedCount").textContent = stats.rejected;
+    renderUnused(unused);
+    setDbStatus(stats.unknown ? `読込完了。状態不明が${stats.unknown}件あります。台帳を確認してください。` : "Google Sheetsの最新状態を読み込みました。", Boolean(stats.unknown));
+  } catch (error) {
+    setDbStatus(`台帳を読み込めませんでした：${error.message}`, true);
+  } finally {
+    $("#refreshDb").disabled = false;
+  }
+}
+
+function setDbStatus(message, warning = false) {
+  $("#dbStatus").textContent = message;
+  $("#dbStatus").classList.toggle("warning", warning);
+}
+
+function renderUnused(items) {
+  $("#unusedListCount").textContent = `${items.length}件`;
+  const container = $("#unusedList");
+  container.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("div"); empty.className = "unused-row"; empty.textContent = "未使用候補はありません。"; container.append(empty); return;
+  }
+  items.forEach((item) => {
+    const row = document.createElement("div"); row.className = "unused-row";
+    const title = document.createElement("strong"); title.textContent = item.title || "（タイトルなし）";
+    const id = document.createElement("small"); id.textContent = item.id;
+    row.append(title, id); container.append(row);
+  });
+}
+
+async function searchDatabase() {
+  const id = $("#searchId").value.trim();
+  state.foundCandidate = null;
+  $("#markUsed").disabled = true;
+  if (!ID_PATTERN.test(id)) { $("#searchResult").textContent = "ce_付きUUID v4を入力してください。"; return; }
+  $("#searchResult").textContent = "検索中です。";
+  try {
+    const item = await runServer("findCandidateById", id);
+    if (!item) { $("#searchResult").textContent = "該当IDはありません。"; return; }
+    state.foundCandidate = item;
+    $("#searchResult").textContent = `${item.title || "（タイトルなし）"} / ${item.status}${item.usedAt ? ` / ${item.usedAt}` : ""}\n${item.dialogue}`;
+    $("#markUsed").disabled = item.status !== "UNUSED";
+  } catch (error) { $("#searchResult").textContent = `検索できませんでした：${error.message}`; }
+}
+
+async function markFoundCandidateUsed() {
+  const item = state.foundCandidate;
+  if (!item || item.status !== "UNUSED") return;
+  if (!window.confirm(`「${item.title || item.id}」をUSEDにします。元に戻す機能はありません。実行しますか？`)) return;
+  $("#markUsed").disabled = true;
+  try {
+    const result = await runServer("markCandidateUsed", item.id);
+    if (result.updated) {
+      $("#searchResult").textContent = `${item.title || item.id} をUSEDに更新しました。使用日時：${result.usedAt}`;
+      state.foundCandidate = null;
+      await refreshDatabase();
+    } else {
+      $("#searchResult").textContent = `更新しませんでした：${result.reason}`;
+      await searchDatabase();
+    }
+  } catch (error) { $("#searchResult").textContent = `更新できませんでした：${error.message}`; }
+}
+
+async function downloadDatabaseBackup() {
+  $("#downloadDbBackup").disabled = true;
+  try {
+    const payload = await runServer("getAllCandidatesForBackup");
+    downloadPayload(payload, `claude-exit-ledger_${tokyoDate()}.json`);
+  } catch (error) { setDbStatus(`バックアップを作成できませんでした：${error.message}`, true); }
+  finally { $("#downloadDbBackup").disabled = false; }
+}
+
+function buildPrompt() {
+  const theme = $("#theme").value.trim() || "おまかせ";
+  const count = $("#count").value;
+  const extra = $("#extra").value.trim() || "なし";
+  $("#promptPreview").value = `Google Drive内の既存「Claude退場理由台帳」を参照し、過去の理由と重複しない新しい案を考えてください。
+対象スプレッドシート：https://docs.google.com/spreadsheets/d/1K2eeYit2VC8dsKNJsgvgGNao3Z4vt2mt-rTRduY2Jjc/edit
+対象シート：退場理由台帳
+列構成：A=ID、B=タイトル、C=台詞（セリフ）、D=使用状態、E=使用済み反映日時
+
+題材・設定・展開・オチの重複を避け、既存案の単なる言い換えにはしないでください。
+DB参照や書き込みに失敗した場合は、その事実を明示し、登録済みと偽らないでください。
+
+テーマ：${theme}
+生成件数：${count}件
+追加指示：${extra}
+
+「高貴さと不条理さが混ざった、少し不思議でシュールな退場理由」の候補を新しく考えてください。高貴・不条理・具体的・無駄に大げさな発想を歓迎します。
+Claudeは穏やかで理性的、育ちが良く、相手への配慮を忘れない人物です。一人称は「僕」。セリフ本文は柔らかい関西弁・なんJ語を基調とし、過度に標準語へ寄せないでください。ただし、すべての文末を関西弁に統一する必要はありません。
+高貴さ・上品さ・育ちの良さは、言葉遣いではなく家庭環境、生活習慣、価値観、振る舞い、退場理由の内容から表現してください。
+本文中の「〜やねん」「〜なんよ」「〜せなあかん」「〜でな」「〜やから」「〜かもしれん」などは、自然な会話の中で使って構いません。
+退場の冒頭と締めだけは相手への配慮が感じられる穏やかな言い方にしてください。冒頭は「あ、すまん」「ごめんね」「悪いね」、締めは「失礼するね」「帰るよ」「今日はここまでにするよ」「お先にお暇するね」などを参考にしてください。「悪いな」「帰るわ」「失礼するで」「今日はここまでな」のようなぶっきらぼうな挨拶や、「わたくし」「〜ですわ」「〜ますの」などのお嬢様口調は避けてください。過度に丁寧な謝罪や長い前置きも不要です。
+1案のセリフは原則50〜100字程度、できれば70〜90字を目標にし、既存レスバの途中へそのまま挿入できる短さにしてください。
+基本構造は「短い退場の切り出し → 具体的で不条理な理由 → 必要なら穏やかな一言で退場」とし、長い背景説明、執事とのやり取り、事情の詳細、オチの解説は不要です。不条理さの核となる具体的なアイテム、数字、行動は残してください。
+各案は、次の組で示してください。
+1. 番号付きの具体的な見出し（人間が管理するためのラベル）
+2. 新しい候補ごとにあなたが発行する一意のUUID v4（ce_接頭辞付き）
+3. Claude本人が帰宅の理由を語る、一人称のセリフ（「」で囲む）
+
+各候補について、発行したものと同じID・タイトル・セリフを対象シートへ新しい行として追加してください。使用状態は「UNUSED」、使用済み反映日時は空欄にしてください。既存の行・ID・使用状態は変更しないでください。
+登録後に書き込まれた内容を確認し、次の形式で登録結果を出力してください。
+
+1. 庭園のチェンバロと12羽の孔雀
+ID: ce_xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+セリフ: 「あ、すまん。実家の庭園で……」
+
+番号・タイトル・ID・セリフを明確に区別し、出力するIDは台帳へ登録したIDと完全に一致させてください。
+
+セリフは後続の会話の文脈に応じて自然にアレンジできる創作素材です。一字一句を固定する必要はありません。
+同じ発想やオチに偏らず、自由に発想してください。必要であれば注釈やイメージ図を添えても構いません。`;
+  $("#copyStatus").textContent = "コピー前";
+}
+
+async function copyPrompt() { buildPrompt(); try { await navigator.clipboard.writeText($("#promptPreview").value); $("#copyStatus").textContent = "コピー済み"; } catch { $("#promptPreview").select(); const copied = document.execCommand("copy"); $("#copyStatus").textContent = copied ? "コピー済み" : "選択しました（手動コピー）"; } }
+function switchTab(target) { const promptSelected = target === "prompt"; $("#promptPanel").hidden = !promptSelected; $("#extractPanel").hidden = promptSelected; $("#tabPrompt").classList.toggle("is-active", promptSelected); $("#tabExtract").classList.toggle("is-active", !promptSelected); $("#tabPrompt").setAttribute("aria-selected", String(promptSelected)); $("#tabExtract").setAttribute("aria-selected", String(!promptSelected)); }
+function normalizeTitle(value) { return value.trim().replace(/^\s*[#*\-・]+\s*/, "").replace(/\s*[「『][\s\S]*$/, "").replace(/[*#：:]+\s*$/, "").replace(/^(?:見出し|タイトル)\s*[：:]\s*/, "").trim(); }
+
+function extractIdeas(text) {
+  const headings = [...text.matchAll(/^\s*(?:#{1,6}\s*)?(?:\*{0,2})?(\d{1,3})\s*[\.．:：\)）]\s*(.+?)\s*$/gm)]; const ideas = []; const rejected = [];
+  headings.forEach((heading, index) => { const start = heading.index + heading[0].length; const end = index + 1 < headings.length ? headings[index + 1].index : text.length; const block = `${heading[2]}\n${text.slice(start, end)}`; const title = normalizeTitle(heading[2]); const id = block.match(ID_SEARCH_PATTERN)?.[0] ?? ""; const quote = block.match(/「([\s\S]*?)」|『([\s\S]*?)』/); const dialogue = quote?.[1] ?? quote?.[2]; if (title && dialogue?.trim()) ideas.push({ id, title, dialogue: dialogue.trim().replace(/\s*\n\s*/g, " ") }); else rejected.push(`${heading[1]}. ${title || "（見出しなし）"}`); });
+  return { ideas, rejected, headingCount: headings.length };
+}
+function addItem(title = "", dialogue = "") { state.items.push({ id: "", title, dialogue, rejected: false }); renderItems(); }
+function parseSource() { if (state.items.length && !window.confirm("現在の編集候補を破棄し、新しい抽出結果に置き換えますか？")) { setParseNotice("再抽出をキャンセルしました。編集候補とIDは維持されています。"); return; } const result = extractIdeas($("#sourceText").value); if (result.ideas.length) { state.items = result.ideas.map((idea) => ({ ...idea, rejected: false })); const missingIds = result.ideas.filter((idea) => !idea.id).length; setParseNotice(`${result.ideas.length}件を候補として抽出しました。全件を採用として開始します。${missingIds ? ` ${missingIds}件はIDがありません。` : ""}${result.rejected.length ? ` ${result.rejected.length}件は除外しました。` : ""}`, Boolean(missingIds || result.rejected.length)); } else { state.items = []; setParseNotice(result.headingCount ? "番号付き見出しは見つかりましたが、セリフと組にできませんでした。" : "番号付き見出しとセリフの組を見つけられませんでした。", true); } renderItems(); }
+function setParseNotice(message, warning = false) { $("#parseNotice").textContent = message; $("#parseNotice").classList.toggle("warning", warning); }
+function bindCard(card, item) { const rejected = card.querySelector(".idea-rejected"), id = card.querySelector(".idea-id"), title = card.querySelector(".idea-title"), dialogue = card.querySelector(".idea-dialogue"); rejected.checked = item.rejected; id.value = item.id; title.value = item.title; dialogue.value = item.dialogue; card.classList.toggle("is-rejected", item.rejected); rejected.addEventListener("change", () => { item.rejected = rejected.checked; card.classList.toggle("is-rejected", item.rejected); updateJson(); }); id.addEventListener("input", () => { item.id = id.value.trim(); updateJson(); }); title.addEventListener("input", () => { item.title = title.value; updateJson(); }); dialogue.addEventListener("input", () => { item.dialogue = dialogue.value; updateJson(); }); card.querySelector(".delete-button").addEventListener("click", () => { state.items = state.items.filter((candidate) => candidate !== item); renderItems(); }); }
+function renderItems() { const container = $("#items"); container.replaceChildren(); state.items.forEach((item, index) => { const fragment = $("#itemTemplate").content.cloneNode(true); const card = fragment.querySelector(".idea-card"); card.querySelector(".idea-number").textContent = `候補 ${index + 1}`; bindCard(card, item); container.append(fragment); }); $("#itemCount").textContent = `${state.items.length}件`; updateJson(); }
+function duplicateIds(items) { const seen = new Set(), duplicates = new Set(); items.forEach((item) => { const key = item.id.toLowerCase(); if (key && seen.has(key)) duplicates.add(key); if (key) seen.add(key); }); return duplicates; }
+function exportableItems() { const duplicates = duplicateIds(state.items); return state.items.filter((item) => ID_PATTERN.test(item.id) && !duplicates.has(item.id.toLowerCase()) && item.title.trim() && item.dialogue.trim()).map(({ id, title, dialogue, rejected }) => ({ id, title: title.trim(), dialogue: dialogue.trim(), status: rejected ? "REJECTED" : "UNUSED" })); }
+
+function updateJson() {
+  const items = exportableItems(), duplicates = duplicateIds(state.items); $("#jsonPreview").textContent = JSON.stringify({ schema_version: 1, type: "claude_exit_ideas", items }, null, 2); $("#downloadJson").disabled = !items.length;
+  const rejectedCount = state.items.filter((item) => item.rejected).length; $("#selectionCount").textContent = `採用 ${state.items.length - rejectedCount}件／不採用 ${rejectedCount}件`; $("#applyRejections").disabled = !rejectedCount;
+  document.querySelectorAll(".idea-card").forEach((card, index) => { const item = state.items[index], invalid = item.id && !ID_PATTERN.test(item.id), duplicate = item.id && duplicates.has(item.id.toLowerCase()), warning = card.querySelector(".item-warning"); card.querySelector(".idea-id").classList.toggle("is-invalid", Boolean(invalid || duplicate)); warning.textContent = !item.id ? "DB未登録の可能性あり：IDがないためJSONから除外します。" : invalid ? "ID形式が不正なためJSONから除外します。" : duplicate ? "同じIDが複数候補にあります。" : ""; });
+  const invalid = state.items.filter((item) => item.id && !ID_PATTERN.test(item.id)).length, missing = state.items.filter((item) => !item.id).length, incomplete = state.items.filter((item) => !item.title.trim() || !item.dialogue.trim()).length, notice = $("#validationNotice");
+  if (duplicates.size) notice.textContent = "重複IDの候補はJSONから除外されています。"; else if (invalid) notice.textContent = `${invalid}件はID形式が不正です。`; else if (missing) notice.textContent = `${missing}件はIDがありません。`; else if (incomplete) notice.textContent = `${incomplete}件はタイトルまたは台詞が空です。`; else notice.textContent = `形式確認済み：${items.length}件を採否ステータス付きで出力します。`; notice.classList.toggle("warning", Boolean(duplicates.size || invalid || missing || incomplete));
+}
+
+async function applyRejections() {
+  const ids = state.items.filter((item) => item.rejected).map((item) => item.id);
+  if (!ids.length || !window.confirm(`不採用チェックのある${ids.length}件を台帳へ反映します。UNUSEDの既存IDだけがREJECTEDになります。実行しますか？`)) return;
+  const button = $("#applyRejections"); button.disabled = true; $("#ledgerResult").textContent = "台帳へ反映しています。";
+  try {
+    const result = await runServer("rejectCandidates", ids);
+    const failures = result.results.filter((item) => !item.updated);
+    $("#ledgerResult").textContent = `更新成功 ${result.updatedCount}件／失敗 ${result.failedCount}件${failures.length ? `\n失敗ID：\n${failures.map((item) => `${item.id || "（IDなし）"}（${item.reason}）`).join("\n")}` : ""}`;
+    $("#ledgerNotice").textContent = result.failedCount ? "一部を更新できませんでした。失敗IDと台帳状態を確認してください。" : "不採用候補をREJECTEDへ更新しました。";
+    $("#ledgerNotice").classList.toggle("warning", Boolean(result.failedCount));
+    await refreshDatabase();
+  } catch (error) {
+    $("#ledgerResult").textContent = `反映できませんでした：${error.message}`;
+    $("#ledgerNotice").textContent = "台帳は更新されていません。内容を確認して再実行してください。";
+    $("#ledgerNotice").classList.add("warning");
+  } finally { updateJson(); }
+}
+
+function tokyoDate() { return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }); }
+function downloadPayload(payload, filename) { const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" }); const url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+function downloadJson() { const items = exportableItems(); if (items.length) downloadPayload({ schema_version: 1, type: "claude_exit_ideas", items }, `claude-exit-ideas_${tokyoDate()}.json`); }
+
+$("#tabPrompt").addEventListener("click", () => switchTab("prompt")); $("#tabExtract").addEventListener("click", () => switchTab("extract")); [$("#theme"), $("#count"), $("#extra")].forEach((node) => node.addEventListener("input", buildPrompt)); $("#copyPrompt").addEventListener("click", copyPrompt); $("#extractButton").addEventListener("click", parseSource); $("#clearSource").addEventListener("click", () => { $("#sourceText").value = ""; setParseNotice("原文をクリアしました。編集候補は残っています。"); }); $("#addItem").addEventListener("click", () => addItem()); $("#downloadJson").addEventListener("click", downloadJson);
+$("#applyRejections").addEventListener("click", applyRejections);
+$("#refreshDb").addEventListener("click", refreshDatabase); $("#searchDb").addEventListener("click", searchDatabase); $("#markUsed").addEventListener("click", markFoundCandidateUsed); $("#downloadDbBackup").addEventListener("click", downloadDatabaseBackup); $("#searchId").addEventListener("keydown", (event) => { if (event.key === "Enter") searchDatabase(); });
+
+buildPrompt(); renderItems(); refreshDatabase();
