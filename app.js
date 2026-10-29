@@ -1166,6 +1166,26 @@ function assemblePrompt(payload) {
   const ruleLayerBlock = formatRuleLayer(rule, patchPayloads, guestCharacters);
 
   return [
+    "# Layer 0: Execution Contract",
+    "- 最初に Persona Brain Layers・今回の Rule / Patches / Guests・Style Renderer から会話展開を組み立てる",
+    "- 次に Length Policy と Opening Policy を調整し、必須イベントを含む台本本文を完成させる",
+    "- 最後に Layer 8: Output Contract の指示で書式だけを校正する",
+    "- 最終校正では、会話内容・語尾・話者・発言順・オチを変更しない",
+    "- 内容の創作と表記整形は異なる工程として扱う",
+    "- 最終的には、整形済みの完成本文だけを出力する",
+    "",
+    "content_constraint_priority:",
+    "1. 今回の Rule による必須イベント",
+    "2. 人格と Style のキャラクター固有制約",
+    "3. Opening Policy",
+    "4. Length Policy の総文字数",
+    "5. Length Policy の発言数・一発言長の目安",
+    "",
+    "scope_contract:",
+    "- 上記の内容制約は担当範囲内で必須",
+    "- Layer 8: Output Contract も最終書式の担当範囲内で必須",
+    "- Output Contract は内容制約に従属するのではなく、完成後の表記だけを校正する",
+    "",
     "# Layer 1: Debate Engine",
     debateEngine.trim(),
     "",
@@ -1184,7 +1204,7 @@ function assemblePrompt(payload) {
     "# Layer 6: Length Policy",
     formatLengthPolicyMode(lengthPolicyMode),
     "",
-    "# Layer 7: Topic",
+    "# Layer 7: Topic / Claude Exit Reason",
     `議題: ${topic}`,
     `ダイスロール結果: ${state.diceResult}`,
     `適用ルール: ${state.selectedRuleId}`,
@@ -1198,7 +1218,7 @@ function assemblePrompt(payload) {
     `分量プリセット: ${lengthPolicyMode.preset_id}`,
     `総文字数目安: ${lengthPolicyMode.target_total_chars.min}〜${lengthPolicyMode.target_total_chars.max}字`,
     "",
-    "# Mandatory Composition Instructions",
+    "# Composition Instructions",
     "- まず各キャラクターは brain_layer に従って「何を主張するか」を決める",
     "- 次に style_renderer に従って、その主張を自然な会話台詞へ変換する",
     "- brain_layer の語彙や説明文を、そのまま台詞に出してはいけない",
@@ -1207,10 +1227,16 @@ function assemblePrompt(payload) {
     "- 独立した作文モノローグは禁止",
     "- style_renderer は語尾だけでなく、会話テンポ、割り込み、長文例外、特殊イベント、用語辞書、終幕処理まで制御する",
     "- style_renderer / rule の examples / candidates は候補扱いとし、並列連結でそのまま出力しない",
+    "- claude_walkout.required = true の Rule では、長文化トリガーを満たさなくても Claude の退場を必ず発生させる",
+    "- Style Renderer の長文化トリガーは別の発動経路であり、Rule の必須退場を取り消さない",
+    "- 一つの討論で同じ Claude を重複退場させない",
+    "- DBから選択した退場理由は、退場イベントが発生した場合の創作素材としてのみ使う",
+    "- DB候補を選択しただけでは Claude の退場を必須にしない",
+    "- Claude退場後のツッコミと討論継続は今回の Rule に従う",
     ...formatOpeningPolicyInstructions(openingPolicyMode),
     ...formatLengthPolicyInstructions(lengthPolicyMode),
     "",
-    "# Layer 8: Output Format",
+    "# Layer 8: Output Contract",
     outputFormat.trim()
   ].join("\n");
 }
@@ -1350,11 +1376,13 @@ function formatLengthPolicyMode(mode) {
 
 function formatLengthPolicyInstructions(mode) {
   const base = [
-    `- 会話全体の総文字数を ${mode.target_total_chars.min}〜${mode.target_total_chars.max} 字程度に収める`,
-    "- Length Policy は tempo_rules より優先する",
-    "- 「発言回数を増やす」は、総文字数レンジを超えない範囲でのみ適用する",
-    "- 文字数調整は1発言の長文化ではなく、発言回数で行う",
-    "- 短文ラリーのテンポを維持する",
+    `- 会話全体の総文字数 ${mode.target_total_chars.min}〜${mode.target_total_chars.max} 字を最優先の分量目標とする`,
+    "- 発言数は総文字数に次ぐ優先目標とする",
+    "- 平均90字などの一発言長は厳格な上限ではなく目安とする",
+    "- Length Policy の総文字数は tempo_rules より優先する",
+    "- 原則として短文ラリーの自然なテンポを維持する",
+    "- 文字数を満たすためだけの不自然な長文や、機械的な発言増加を避ける",
+    "- 数値条件を完全に両立できない場合は、自然な会話と Rule の必須イベントを破壊しない",
     "- 最後は短くフェードアウトし、総括で閉じない"
   ];
 
