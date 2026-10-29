@@ -4,7 +4,7 @@
 
 ## 構成
 
-- `Code.gs`: Sheets読取、ID検索、全件バックアップ、`UNUSED` → `USED` 更新
+- `Code.gs`: Sheets読取、ID検索、全件バックアップ、`UNUSED` → `USED` / `REJECTED` 更新
 - `Index.html` / `Style.html` / `Client.html`: 既存2タブUIと最小限のDB表示
 - `appsscript.json`: Asia/Tokyo、V8設定
 
@@ -21,3 +21,5 @@
 ## 安全な状態更新
 
 `markCandidateUsed(id)` はIDを完全一致で検索し、対象が1行かつ現在 `UNUSED` の場合だけD列を `USED`、E列を処理時刻に更新します。既に `USED` の行、未知ID、重複ID、不正状態は更新しません。A〜C列には書き込みません。
+
+Tab②の `rejectCandidates(ids)` はスクリプトロック下で既存IDを完全一致検索し、現在 `UNUSED` の行だけD列を `REJECTED` にします。新規行、A〜C列、E列、`USED` は変更せず、候補ごとの成功・失敗理由を返します。

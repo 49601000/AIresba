@@ -20,6 +20,7 @@ async function refreshDatabase() {
     $("#totalCount").textContent = stats.total;
     $("#unusedCount").textContent = stats.unused;
     $("#usedCount").textContent = stats.used;
+    $("#rejectedCount").textContent = stats.rejected;
     renderUnused(unused);
     setDbStatus(stats.unknown ? `読込完了。状態不明が${stats.unknown}件あります。台帳を確認してください。` : "Google Sheetsの最新状態を読み込みました。", Boolean(stats.unknown));
   } catch (error) {
@@ -142,19 +143,38 @@ function extractIdeas(text) {
   headings.forEach((heading, index) => { const start = heading.index + heading[0].length; const end = index + 1 < headings.length ? headings[index + 1].index : text.length; const block = `${heading[2]}\n${text.slice(start, end)}`; const title = normalizeTitle(heading[2]); const id = block.match(ID_SEARCH_PATTERN)?.[0] ?? ""; const quote = block.match(/「([\s\S]*?)」|『([\s\S]*?)』/); const dialogue = quote?.[1] ?? quote?.[2]; if (title && dialogue?.trim()) ideas.push({ id, title, dialogue: dialogue.trim().replace(/\s*\n\s*/g, " ") }); else rejected.push(`${heading[1]}. ${title || "（見出しなし）"}`); });
   return { ideas, rejected, headingCount: headings.length };
 }
-function addItem(title = "", dialogue = "") { state.items.push({ id: "", title, dialogue, adopted: true }); renderItems(); }
-function parseSource() { if (state.items.length && !window.confirm("現在の編集候補を破棄し、新しい抽出結果に置き換えますか？")) { setParseNotice("再抽出をキャンセルしました。編集候補とIDは維持されています。"); return; } const result = extractIdeas($("#sourceText").value); if (result.ideas.length) { state.items = result.ideas.map((idea) => ({ ...idea, adopted: true })); const missingIds = result.ideas.filter((idea) => !idea.id).length; setParseNotice(`${result.ideas.length}件を候補として抽出しました。内容を確認してください。${missingIds ? ` ${missingIds}件はIDがありません。` : ""}${result.rejected.length ? ` ${result.rejected.length}件は除外しました。` : ""}`, Boolean(missingIds || result.rejected.length)); } else { state.items = []; setParseNotice(result.headingCount ? "番号付き見出しは見つかりましたが、セリフと組にできませんでした。" : "番号付き見出しとセリフの組を見つけられませんでした。", true); } renderItems(); }
+function addItem(title = "", dialogue = "") { state.items.push({ id: "", title, dialogue, rejected: false }); renderItems(); }
+function parseSource() { if (state.items.length && !window.confirm("現在の編集候補を破棄し、新しい抽出結果に置き換えますか？")) { setParseNotice("再抽出をキャンセルしました。編集候補とIDは維持されています。"); return; } const result = extractIdeas($("#sourceText").value); if (result.ideas.length) { state.items = result.ideas.map((idea) => ({ ...idea, rejected: false })); const missingIds = result.ideas.filter((idea) => !idea.id).length; setParseNotice(`${result.ideas.length}件を候補として抽出しました。全件を採用として開始します。${missingIds ? ` ${missingIds}件はIDがありません。` : ""}${result.rejected.length ? ` ${result.rejected.length}件は除外しました。` : ""}`, Boolean(missingIds || result.rejected.length)); } else { state.items = []; setParseNotice(result.headingCount ? "番号付き見出しは見つかりましたが、セリフと組にできませんでした。" : "番号付き見出しとセリフの組を見つけられませんでした。", true); } renderItems(); }
 function setParseNotice(message, warning = false) { $("#parseNotice").textContent = message; $("#parseNotice").classList.toggle("warning", warning); }
-function bindCard(card, item) { const adopted = card.querySelector(".idea-adopted"), id = card.querySelector(".idea-id"), title = card.querySelector(".idea-title"), dialogue = card.querySelector(".idea-dialogue"); adopted.checked = item.adopted; id.value = item.id; title.value = item.title; dialogue.value = item.dialogue; card.classList.toggle("is-excluded", !item.adopted); adopted.addEventListener("change", () => { item.adopted = adopted.checked; card.classList.toggle("is-excluded", !item.adopted); updateJson(); }); id.addEventListener("input", () => { item.id = id.value.trim(); updateJson(); }); title.addEventListener("input", () => { item.title = title.value; updateJson(); }); dialogue.addEventListener("input", () => { item.dialogue = dialogue.value; updateJson(); }); card.querySelector(".delete-button").addEventListener("click", () => { state.items = state.items.filter((candidate) => candidate !== item); renderItems(); }); }
+function bindCard(card, item) { const rejected = card.querySelector(".idea-rejected"), id = card.querySelector(".idea-id"), title = card.querySelector(".idea-title"), dialogue = card.querySelector(".idea-dialogue"); rejected.checked = item.rejected; id.value = item.id; title.value = item.title; dialogue.value = item.dialogue; card.classList.toggle("is-rejected", item.rejected); rejected.addEventListener("change", () => { item.rejected = rejected.checked; card.classList.toggle("is-rejected", item.rejected); updateJson(); }); id.addEventListener("input", () => { item.id = id.value.trim(); updateJson(); }); title.addEventListener("input", () => { item.title = title.value; updateJson(); }); dialogue.addEventListener("input", () => { item.dialogue = dialogue.value; updateJson(); }); card.querySelector(".delete-button").addEventListener("click", () => { state.items = state.items.filter((candidate) => candidate !== item); renderItems(); }); }
 function renderItems() { const container = $("#items"); container.replaceChildren(); state.items.forEach((item, index) => { const fragment = $("#itemTemplate").content.cloneNode(true); const card = fragment.querySelector(".idea-card"); card.querySelector(".idea-number").textContent = `候補 ${index + 1}`; bindCard(card, item); container.append(fragment); }); $("#itemCount").textContent = `${state.items.length}件`; updateJson(); }
 function duplicateIds(items) { const seen = new Set(), duplicates = new Set(); items.forEach((item) => { const key = item.id.toLowerCase(); if (key && seen.has(key)) duplicates.add(key); if (key) seen.add(key); }); return duplicates; }
-function exportableItems() { const duplicates = duplicateIds(state.items.filter((item) => item.adopted)); return state.items.filter((item) => item.adopted && ID_PATTERN.test(item.id) && !duplicates.has(item.id.toLowerCase()) && item.title.trim() && item.dialogue.trim()).map(({ id, title, dialogue }) => ({ id, title: title.trim(), dialogue: dialogue.trim() })); }
+function exportableItems() { const duplicates = duplicateIds(state.items); return state.items.filter((item) => ID_PATTERN.test(item.id) && !duplicates.has(item.id.toLowerCase()) && item.title.trim() && item.dialogue.trim()).map(({ id, title, dialogue, rejected }) => ({ id, title: title.trim(), dialogue: dialogue.trim(), status: rejected ? "REJECTED" : "UNUSED" })); }
 
 function updateJson() {
-  const items = exportableItems(), duplicates = duplicateIds(state.items), adoptedDuplicates = duplicateIds(state.items.filter((item) => item.adopted)); $("#jsonPreview").textContent = JSON.stringify({ schema_version: 1, type: "claude_exit_ideas", items }, null, 2); $("#adoptedCount").textContent = `採用 ${items.length}件`; $("#downloadJson").disabled = !items.length;
+  const items = exportableItems(), duplicates = duplicateIds(state.items); $("#jsonPreview").textContent = JSON.stringify({ schema_version: 1, type: "claude_exit_ideas", items }, null, 2); $("#downloadJson").disabled = !items.length;
+  const rejectedCount = state.items.filter((item) => item.rejected).length; $("#selectionCount").textContent = `採用 ${state.items.length - rejectedCount}件／不採用 ${rejectedCount}件`; $("#applyRejections").disabled = !rejectedCount;
   document.querySelectorAll(".idea-card").forEach((card, index) => { const item = state.items[index], invalid = item.id && !ID_PATTERN.test(item.id), duplicate = item.id && duplicates.has(item.id.toLowerCase()), warning = card.querySelector(".item-warning"); card.querySelector(".idea-id").classList.toggle("is-invalid", Boolean(invalid || duplicate)); warning.textContent = !item.id ? "DB未登録の可能性あり：IDがないためJSONから除外します。" : invalid ? "ID形式が不正なためJSONから除外します。" : duplicate ? "同じIDが複数候補にあります。" : ""; });
-  const invalid = state.items.filter((item) => item.adopted && item.id && !ID_PATTERN.test(item.id)).length, missing = state.items.filter((item) => item.adopted && !item.id).length, incomplete = state.items.filter((item) => item.adopted && (!item.title.trim() || !item.dialogue.trim())).length, notice = $("#validationNotice");
-  if (adoptedDuplicates.size) notice.textContent = "採用中の重複IDはJSONから除外されています。"; else if (invalid) notice.textContent = `採用中の${invalid}件はID形式が不正です。`; else if (missing) notice.textContent = `採用中の${missing}件はIDがありません。`; else if (incomplete) notice.textContent = `採用中の${incomplete}件は見出しまたはセリフが空です。`; else notice.textContent = `形式確認済み：採用された${items.length}件をGemini出力と同じIDで出力します。`; notice.classList.toggle("warning", Boolean(adoptedDuplicates.size || invalid || missing || incomplete));
+  const invalid = state.items.filter((item) => item.id && !ID_PATTERN.test(item.id)).length, missing = state.items.filter((item) => !item.id).length, incomplete = state.items.filter((item) => !item.title.trim() || !item.dialogue.trim()).length, notice = $("#validationNotice");
+  if (duplicates.size) notice.textContent = "重複IDの候補はJSONから除外されています。"; else if (invalid) notice.textContent = `${invalid}件はID形式が不正です。`; else if (missing) notice.textContent = `${missing}件はIDがありません。`; else if (incomplete) notice.textContent = `${incomplete}件はタイトルまたは台詞が空です。`; else notice.textContent = `形式確認済み：${items.length}件を採否ステータス付きで出力します。`; notice.classList.toggle("warning", Boolean(duplicates.size || invalid || missing || incomplete));
+}
+
+async function applyRejections() {
+  const ids = state.items.filter((item) => item.rejected).map((item) => item.id);
+  if (!ids.length || !window.confirm(`不採用チェックのある${ids.length}件を台帳へ反映します。UNUSEDの既存IDだけがREJECTEDになります。実行しますか？`)) return;
+  const button = $("#applyRejections"); button.disabled = true; $("#ledgerResult").textContent = "台帳へ反映しています。";
+  try {
+    const result = await runServer("rejectCandidates", ids);
+    const failures = result.results.filter((item) => !item.updated);
+    $("#ledgerResult").textContent = `更新成功 ${result.updatedCount}件／失敗 ${result.failedCount}件${failures.length ? `\n失敗ID：\n${failures.map((item) => `${item.id || "（IDなし）"}（${item.reason}）`).join("\n")}` : ""}`;
+    $("#ledgerNotice").textContent = result.failedCount ? "一部を更新できませんでした。失敗IDと台帳状態を確認してください。" : "不採用候補をREJECTEDへ更新しました。";
+    $("#ledgerNotice").classList.toggle("warning", Boolean(result.failedCount));
+    await refreshDatabase();
+  } catch (error) {
+    $("#ledgerResult").textContent = `反映できませんでした：${error.message}`;
+    $("#ledgerNotice").textContent = "台帳は更新されていません。内容を確認して再実行してください。";
+    $("#ledgerNotice").classList.add("warning");
+  } finally { updateJson(); }
 }
 
 function tokyoDate() { return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }); }
@@ -162,6 +182,7 @@ function downloadPayload(payload, filename) { const blob = new Blob([`${JSON.str
 function downloadJson() { const items = exportableItems(); if (items.length) downloadPayload({ schema_version: 1, type: "claude_exit_ideas", items }, `claude-exit-ideas_${tokyoDate()}.json`); }
 
 $("#tabPrompt").addEventListener("click", () => switchTab("prompt")); $("#tabExtract").addEventListener("click", () => switchTab("extract")); [$("#theme"), $("#count"), $("#extra")].forEach((node) => node.addEventListener("input", buildPrompt)); $("#copyPrompt").addEventListener("click", copyPrompt); $("#extractButton").addEventListener("click", parseSource); $("#clearSource").addEventListener("click", () => { $("#sourceText").value = ""; setParseNotice("原文をクリアしました。編集候補は残っています。"); }); $("#addItem").addEventListener("click", () => addItem()); $("#downloadJson").addEventListener("click", downloadJson);
+$("#applyRejections").addEventListener("click", applyRejections);
 $("#refreshDb").addEventListener("click", refreshDatabase); $("#searchDb").addEventListener("click", searchDatabase); $("#markUsed").addEventListener("click", markFoundCandidateUsed); $("#downloadDbBackup").addEventListener("click", downloadDatabaseBackup); $("#searchId").addEventListener("keydown", (event) => { if (event.key === "Enter") searchDatabase(); });
 
 buildPrompt(); renderItems(); refreshDatabase();

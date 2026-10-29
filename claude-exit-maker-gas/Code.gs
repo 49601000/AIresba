@@ -25,9 +25,10 @@ function getDatabaseStats() {
     stats.total += 1;
     if (record.status === "UNUSED") stats.unused += 1;
     else if (record.status === "USED") stats.used += 1;
+    else if (record.status === "REJECTED") stats.rejected += 1;
     else stats.unknown += 1;
     return stats;
-  }, { total: 0, unused: 0, used: 0, unknown: 0 });
+  }, { total: 0, unused: 0, used: 0, rejected: 0, unknown: 0 });
 }
 
 function getUnusedCandidates() {
@@ -51,8 +52,70 @@ function getAllCandidatesForBackup() {
     type: "claude_exit_ideas",
     exported_at: Utilities.formatDate(new Date(), CLAUDE_EXIT_DB.timeZone, "yyyy-MM-dd'T'HH:mm:ssXXX"),
     items: readCandidateRecords_().map(function (record) {
-      return { id: record.id, title: record.title, dialogue: record.dialogue };
+      return { id: record.id, title: record.title, dialogue: record.dialogue, status: record.status };
     })
+  };
+}
+
+function rejectCandidates(ids) {
+  var requestedIds = Array.isArray(ids) ? ids : [];
+  var results = [];
+  var normalizedIds = [];
+  var requested = Object.create(null);
+
+  requestedIds.forEach(function (id) {
+    var normalized;
+    try {
+      normalized = normalizeCandidateId_(id);
+    } catch (error) {
+      results.push({ id: String(id == null ? "" : id), updated: false, reason: "INVALID_ID" });
+      return;
+    }
+    var key = normalized.toLowerCase();
+    if (requested[key]) {
+      results.push({ id: normalized, updated: false, reason: "DUPLICATE_REQUEST_ID" });
+      return;
+    }
+    requested[key] = true;
+    normalizedIds.push(normalized);
+  });
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getLedgerSheet_();
+    var count = candidateRowCount_(sheet);
+    var rows = count ? sheet.getRange(2, 1, count, 5).getValues() : [];
+    normalizedIds.forEach(function (id) {
+      var matches = [];
+      rows.forEach(function (row, index) {
+        if (String(row[0] == null ? "" : row[0]).trim() === id) matches.push({ row: index + 2, values: row });
+      });
+      if (!matches.length) {
+        results.push({ id: id, updated: false, reason: "NOT_FOUND" });
+        return;
+      }
+      if (matches.length > 1) {
+        results.push({ id: id, updated: false, reason: "DUPLICATE_ID" });
+        return;
+      }
+      var currentStatus = String(matches[0].values[3] == null ? "" : matches[0].values[3]).trim().toUpperCase();
+      if (currentStatus !== "UNUSED") {
+        results.push({ id: id, updated: false, reason: currentStatus === "USED" ? "ALREADY_USED" : currentStatus === "REJECTED" ? "ALREADY_REJECTED" : "INVALID_STATUS" });
+        return;
+      }
+      sheet.getRange(matches[0].row, 4).setValue("REJECTED");
+      results.push({ id: id, updated: true, reason: "UPDATED" });
+    });
+    if (results.some(function (result) { return result.updated; })) SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+
+  return {
+    updatedCount: results.filter(function (result) { return result.updated; }).length,
+    failedCount: results.filter(function (result) { return !result.updated; }).length,
+    results: results
   };
 }
 
